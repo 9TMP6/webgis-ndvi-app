@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import requests
-import geopandas as gpd 
+import geopandas as gpd
 
 # =============================================================================
 # 1. CẤU HÌNH TRANG & CUSTOM CSS
@@ -248,13 +248,11 @@ with col_map:
 
     # 📌 3. HIỂN THỊ RANH GIỚI TỪ SHAPEFILE LOCAL HCM-34 🗺️
     if show_boundaries:
-        # Đường dẫn tới file .shp chính trong folder HCM-34
         SHP_PATH = "HCM-34/HCM-34.shp"
         
         gdf_boundary = load_local_shapefile(SHP_PATH)
         
         if gdf_boundary is not None:
-            # Tự động chọn tên cột hiển thị khi rê chuột vào
             cols = [c for c in ['NAME_1', 'NAME_2', 'TEN_TINH', 'TEN_HUYEN', 'name'] if c in gdf_boundary.columns]
             tooltip_field = cols[:1] if cols else [gdf_boundary.columns[0]]
 
@@ -262,10 +260,10 @@ with col_map:
                 gdf_boundary,
                 name="Ranh giới HCM-34",
                 style_function=lambda feature: {
-                    'fillColor': 'transparent', # Nền trong suốt
-                    'color': '#38BDF8',        # Màu viền xanh Cyan
-                    'weight': 2.0,             # Độ dày nét
-                    'dashArray': '4, 4',       # Nét đứt
+                    'fillColor': 'transparent',
+                    'color': '#38BDF8',
+                    'weight': 2.0,
+                    'dashArray': '4, 4',
                     'fillOpacity': 0,
                 },
                 tooltip=folium.GeoJsonTooltip(
