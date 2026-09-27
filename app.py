@@ -19,14 +19,14 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 3. Sidebar
-selected_province, selected_district, selected_time, basemap_choice, show_boundaries = render_sidebar()
+# 3. Sidebar (Đã khớp đủ 6 biến trả về từ render_sidebar)
+selected_province, selected_district, selected_time, basemap_choice, show_boundaries, btn_predict = render_sidebar()
 
-# Khởi tạo session state để lưu trữ dữ liệu bản đồ
+# Khởi tạo session state lưu trữ dữ liệu
 if "ndvi_df" not in st.session_state:
     st.session_state["ndvi_df"] = pd.DataFrame()
 
-# 4. Chỉ thực thi query & cập nhật giao diện KHI BẤM NÚT "DỰ ĐOÁN"
+# 4. Chỉ truy vấn CSDL khi bấm nút "🚀 CHẠY DỰ BÁO AI"
 if btn_predict:
     year = selected_time.year
     month = selected_time.month
@@ -35,7 +35,7 @@ if btn_predict:
         df_result = load_ndvi_data(year=year, month=month)
         st.session_state["ndvi_df"] = df_result
 
-        # Thông báo trạng thái Toast Alert
+        # Thông báo Toast Alert trạng thái
         if df_result.empty:
             st.toast(f"⚠️ Không tìm thấy dữ liệu cho tháng {month}/{year}", icon="❌")
             st.warning(f"⚠️ **Không có dữ liệu:** Tháng **{month}/{year}** chưa có bản ghi NDVI trong CSDL Supabase. Bạn thử chọn mốc **Tháng 11/2020** nhé!")
@@ -44,15 +44,16 @@ if btn_predict:
             st.success(f"🎉 **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô tọa độ NDVI cho Tháng **{month}/{year}**!")
 
 ndvi_df = st.session_state["ndvi_df"]
-# 4. Tọa độ chính
+
+# 5. Tọa độ chính
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 
-# 5. Bản đồ & Chỉ số
+# 6. Bản đồ & Chỉ số
 col_map, col_metrics = st.columns([3.3, 1.0])
 with col_map:
     render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=ndvi_df, selected_time=selected_time)
 with col_metrics:
-    render_metrics()
+    render_metrics(df=ndvi_df) # 🟢 Đã truyền df=ndvi_df để cập nhật chỉ số động
 
-# 6. Biểu đồ AI & Thống kê
+# 7. Biểu đồ AI & Thống kê
 render_chart_and_summary(selected_district, selected_province, selected_time, df=ndvi_df)
