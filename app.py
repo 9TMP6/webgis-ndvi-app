@@ -6,13 +6,13 @@ import numpy as np
 import plotly.graph_objects as go
 
 # =============================================================================
-# 1. CẤU HÌNH TRANG & CUSTOM CSS (KHẮC PHỤC TRIỆT ĐỂ NÚT THU/MỞ SIDEBAR)
+# 1. CẤU HÌNH TRANG & CUSTOM CSS (CỐ ĐỊNH SIDEBAR LUÔN HIỆN)
 # =============================================================================
 st.set_page_config(
     layout="wide",
     page_title="GEO-NDVI INTELLIGENCE PLATFORM",
     page_icon="🌐",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded"  # Mặc định luôn mở Sidebar 📌
 )
 
 st.markdown("""
@@ -31,34 +31,17 @@ st.markdown("""
         display: none !important;
     }
 
-    /* 2. Cấu hình Header & Ép Nút Mở Sidebar (>) luôn hiển thị nổi lên trên */
+    /* 2. ẨN HOÀN TOÀN NÚT THU / MỞ SIDEBAR (Nút << và >) -> Cố định Sidebar luôn hiện */
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Header trong suốt */
     header[data-testid="stHeader"] {
         background: transparent !important;
-        z-index: 99990 !important;
-    }
-
-    /* Định dạng nút mở Sidebar (>) khi bị thu gọn */
-    [data-testid="stSidebarCollapsedControl"], 
-    [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 999999 !important;
-        top: 0.6rem !important;
-        left: 0.6rem !important;
-        background-color: #0F172A !important;
-        border: 1px solid #38BDF8 !important;
-        border-radius: 6px !important;
-        padding: 2px !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="collapsedControl"] button {
-        color: #38BDF8 !important;
-    }
-
-    /* Định dạng nút đóng Sidebar (<<) khi đang mở */
-    [data-testid="stSidebarCollapseButton"] button {
-        color: #38BDF8 !important;
     }
 
     /* Reset & Dark Background */
@@ -70,9 +53,9 @@ st.markdown("""
         color: #E2E8F0;
     }
     
-    /* Padding trang chính (đẩy nhẹ top để tránh bị nút > đè lên tiêu đề) */
+    /* Padding trang chính */
     .block-container {
-        padding-top: 2.2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1rem !important;
         padding-right: 0.5rem !important;
@@ -106,13 +89,14 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Sidebar Styling & Expander Compact */
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #0F172A;
         border-right: 1px solid #1E293B;
+        width: 300px !important; /* Đảm bảo độ rộng cố định chuẩn đẹp */
     }
     div[data-testid="stSidebarUserContent"] {
-        padding-top: 0.5rem !important;
+        padding-top: 1rem !important;
     }
 
     /* Metric Cards Cột Phải */
@@ -189,9 +173,11 @@ LOCATION_DATA = {
 }
 
 # =============================================================================
-# 4. SIDEBAR - GÔM VÀO CÁC MENU THẢ DOWN (EXPANDERS)
+# 4. SIDEBAR - CỐ ĐỊNH BÊN TRÁI
 # =============================================================================
 with st.sidebar:
+    st.markdown("<h3 style='color: #38BDF8; font-size: 1.1rem; font-weight: bold; margin-bottom: 15px;'>🎛️ BẢNG ĐIỀU KHIỂN</h3>", unsafe_allow_html=True)
+    
     with st.expander("🔮 BỘ LỌC DỰ BÁO", expanded=True):
         selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
         district_options = list(LOCATION_DATA[selected_province].keys())
