@@ -29,7 +29,7 @@ lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 # 5. Bản đồ & Chỉ số
 col_map, col_metrics = st.columns([3.3, 1.0])
 with col_map:
-    render_map(lat, lng, zoom, basemap_choice, show_boundaries)
+    render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=ndvi_df, selected_time=selected_time)
 with col_metrics:
     render_metrics()
 
