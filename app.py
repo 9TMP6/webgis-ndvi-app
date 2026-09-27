@@ -120,17 +120,11 @@ st.markdown("""
 # 2. HÀM CACHE LOAD SHAPEFILE LOCAL TỪ THƯ MỤC HCM-34 📂
 # =============================================================================
 @st.cache_data
-def load_local_shapefile(shp_path="TPHCM-34/HCM-34.shp"):
-    """
-    Đọc file Shapefile ranh giới trong folder HCM-34 và tự động chuyển về WGS84 (EPSG:4326)
-    """
+def load_local_shapefile(shp_path="TPHCM-34/HCM-34.shp"): 
     try:
         gdf = gpd.read_file(shp_path)
-        
-        # Tự động chuyển hệ tọa độ về WGS84 cho Folium nếu chưa phải EPSG:4326
         if gdf.crs is not None and gdf.crs != "EPSG:4326":
             gdf = gdf.to_crs(epsg=4326)
-            
         return gdf
     except Exception as e:
         st.error(f"❌ Không thể tải dữ liệu ranh giới từ '{shp_path}': {e}")
