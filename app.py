@@ -157,7 +157,16 @@ with st.sidebar:
         selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
         district_options = list(LOCATION_DATA[selected_province].keys())
         selected_district = st.selectbox("Quận / Huyện / Phường:", district_options)
-        selected_time = st.date_input("Mốc thời gian:", value=pd.to_datetime("2026-09-01"))
+        
+        # 🗓️ Bộ chọn mốc thời gian (Chỉ chọn Tháng / Năm)
+        col_m, col_y = st.columns(2)
+        with col_m:
+            selected_month = st.selectbox("Tháng:", list(range(1, 13)), index=8) # Mặc định Tháng 9
+        with col_y:
+            selected_year = st.selectbox("Năm:", list(range(2017, 2028)), index=9) # Mặc định Năm 2026
+            
+        # Quy đổi thành mốc ngày đầu tháng để giữ nguyên tính tương thích
+        selected_time = pd.to_datetime(f"{selected_year}-{selected_month:02d}-01")
         
         btn_predict = st.button("🚀 CHẠY DỰ BÁO AI", use_container_width=True, type="primary")
 
@@ -209,16 +218,10 @@ col_map, col_metrics = st.columns([3.3, 1.0])
 with col_map:
     m = folium.Map(location=[lat, lng], zoom_start=zoom, tiles=None)
     
-    # Sửa lỗi CartoDB Dark bằng Tile URL chuẩn không bị lỗi trắng
     if basemap_choice == "Esri Satellite":
         folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
             attr="Esri", name="Esri Satellite"
-        ).add_to(m)
-    elif basemap_choice == "CartoDB Dark":
-        folium.TileLayer(
-            tiles="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-            attr="CartoDB", name="CartoDB Dark"
         ).add_to(m)
     elif basemap_choice == "Google Hybrid":
         folium.TileLayer(
