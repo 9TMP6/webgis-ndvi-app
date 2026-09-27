@@ -53,6 +53,14 @@ ndvi_df = st.session_state["ndvi_df"]
 # 5. Tọa độ chính
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 
+# ==========================================
+# PHẦN GIAO DIỆN CHÍNH (ĐÃ BỔ SUNG TIÊU ĐỀ)
+# ==========================================
+
+st.markdown("---")
+st.markdown("### 🛰️ Không gian Trực quan hóa & Phân tích Vệ tinh")
+st.markdown("<p style='color: #94A3B8; font-size: 0.85rem; margin-top: -10px;'>Bản đồ phân bố chỉ số thực vật thời gian thực kết hợp bảng điều khiển thông số trọng yếu.</p>", unsafe_allow_html=True)
+
 # 6. Bản đồ & Chỉ số
 col_map, col_metrics = st.columns([3.3, 1.0])
 with col_map:
