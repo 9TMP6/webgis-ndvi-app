@@ -1,53 +1,94 @@
+# components/chart_view.py
 import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
-from utils.ai_engine import generate_ndvi_predictions
+import altair as alt
 
-def render_chart_and_summary(selected_district, selected_province, selected_time, df=None):
-    st.markdown("---")
-    st.markdown("<p style='font-weight: bold; font-size: 0.9rem;'>📈 DIỄN BIẾN CHUỖI THỜI GIAN & DỰ BÁO AI (2017 - 2027)</p>", unsafe_allow_html=True)
+def render_chart_and_summary():
+    """
+    Hiển thị biểu đồ chuỗi thời gian (Time-series) và thống kê tóm tắt 
+    dựa hoàn toàn trên dữ liệu thực tế (từ CSDL Supabase hoặc AI ONNX).
+    """
+    st.subheader("📈 Phân tích Chuỗi thời gian & Xu hướng NDVI")
 
-    # 1. Trích xuất chuỗi thời gian thực tế từ DataFrame
-    if df is not None and not df.empty and 'date' in df.columns and 'ndvi_mean' in df.columns:
-        df_grouped = df.groupby('date')['ndvi_mean'].mean().reset_index().sort_values('date')
-        dates = df_grouped['date']
-        actual_ndvi = df_grouped['ndvi_mean']
-        _, _, future_dates, predicted_ndvi = generate_ndvi_predictions()
+    # Lấy dữ liệu đang được lưu trong st.session_state từ trang chính (app.py)
+    df = st.session_state.get("ndvi_df", pd.DataFrame())
+
+    if df.empty:
+        st.info("ℹ️ Chưa có dữ liệu để vẽ biểu đồ. Vui lòng chọn thời gian và bấm nút chạy dự báo/tải dữ liệu ở menu bên trái.")
+        return
+
+    # Chuẩn hóa dữ liệu ngày tháng
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+    elif "year" in df.columns and "month" in df.columns:
+        df["date"] = pd.to_datetime(df[["year", "month"]].assign(day=1))
     else:
-        # Dùng hàm giả lập AI engine
-        dates, actual_ndvi, future_dates, predicted_ndvi = generate_ndvi_predictions()
+        st.warning("⚠️ Dữ liệu thiếu trường thời gian (date/year/month) để vẽ biểu đồ.")
+        return
 
-    # 2. Vẽ biểu đồ đường
-    fig_chart = go.Figure()
-    fig_chart.add_trace(go.Scatter(x=dates, y=actual_ndvi, mode="lines+markers", name="NDVI Thực tế (Supabase)", line=dict(color="#38BDF8", width=1.5)))
-    fig_chart.add_trace(go.Scatter(x=future_dates, y=predicted_ndvi, mode="lines+markers", name="AI Dự báo tương lai", line=dict(color="#F59E0B", width=1.5, dash="dash")))
+    # Gom nhóm theo thời gian để tính giá trị NDVI trung bình, min, max toàn vùng qua từng mốc
+    df_grouped = df.groupby("date").agg({
+        "ndvi_mean": "mean",
+        "ndvi_min": "mean",
+        "ndvi_max": "mean"
+    }).reset_index().sort_values("date")
 
-    fig_chart.update_layout(
-        template="plotly_dark", paper_bgcolor="#151D2A", plot_bgcolor="#151D2A",
-        height=240, margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(showgrid=True, gridcolor="#26334D"),
-        yaxis=dict(showgrid=True, gridcolor="#26334D", range=[-0.2, 1.0]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    st.plotly_chart(fig_chart, use_container_width=True)
+    if df_grouped.empty:
+        st.warning("⚠️ Không đủ dữ liệu theo thời gian để hiển thị biểu đồ.")
+        return
 
-    # 3. 🟢 FIX LỖI AttributeError: Tương thích cho cả Pandas Series và Numpy Array
-    if len(actual_ndvi) > 0:
-        latest_val = actual_ndvi.iloc[-1] if hasattr(actual_ndvi, 'iloc') else actual_ndvi[-1]
-        latest_ndvi = float(latest_val)
-    else:
-        latest_ndvi = 0.5
+    # Chia layout thành 2 cột: Biểu đồ (rộng) và Thống kê nhanh (hẹp)
+    col_chart, col_summary = st.columns([2.5, 1])
 
-    if latest_ndvi >= 0.5:
-        health_status = "Sức khỏe TỐT 🟢"
-    elif latest_ndvi >= 0.2:
-        health_status = "Trung bình 🟡"
-    else:
-        health_status = "Cần chú ý 🔴"
+    with col_chart:
+        st.markdown("##### 🌐 Biểu đồ biến động NDVI trung bình toàn vùng")
+        
+        # Vẽ biểu đồ Line Chart kết hợp vùng min-max bằng Altair
+        base = alt.Chart(df_grouped).encode(
+            x=alt.X("date:T", title="Thời gian (Tháng/Năm)")
+        )
 
-    # 4. Các thẻ thông tin bên dưới biểu đồ
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.info(f"**Vùng:** {selected_district}")
-    with c2: st.info(f"**Tỉnh/TP:** {selected_province}")
-    with c3: st.info(f"**Đánh giá:** {health_status}")
-    with c4: st.info(f"**Mốc:** {selected_time.strftime('%m/%Y')}")
+        # Vùng mờ thể hiện khoảng dao động min-max của thảm thực vật
+        band = base.mark_area(opacity=0.2, color="green").encode(
+            y=alt.Y("ndvi_min:Q", title="Chỉ số NDVI"),
+            y2="ndvi_max:Q"
+        )
+
+        # Đường chính thể hiện giá trị trung bình (NDVI Mean)
+        line = base.mark_line(strokeWidth=3, color="#2ca02c").encode(
+            y=alt.Y("ndvi_mean:Q", title="Chỉ số NDVI Mean")
+        )
+
+        chart = (band + line).interactive().properties(height=350)
+        st.altair_chart(chart, use_container_width=True)
+
+    with col_summary:
+        st.markdown("##### 📋 Tóm tắt chỉ số")
+        
+        # Tính toán các chỉ số thống kê cơ bản từ tập dữ liệu hiện tại
+        current_mean = df_grouped["ndvi_mean"].mean()
+        max_ndvi = df_grouped["ndvi_mean"].max()
+        min_ndvi = df_grouped["ndvi_mean"].min()
+
+        st.metric(
+            label="🌱 NDVI Trung bình toàn chuỗi", 
+            value=f"{current_mean:.3f}"
+        )
+        st.metric(
+            label="📈 NDVI Cao nhất đạt được", 
+            value=f"{max_ndvi:.3f}"
+        )
+        st.metric(
+            label="📉 NDVI Thấp nhất ghi nhận", 
+            value=f"{min_ndvi:.3f}"
+        )
+
+        # Đánh giá nhanh tình trạng thảm thực vật
+        if current_mean > 0.5:
+            st.success("✨ Thảm thực vật phát triển rất tốt, độ phủ xanh cao.")
+        elif current_mean > 0.3:
+            st.info("🌿 Thảm thực vật ở mức trung bình, ổn định.")
+        else:
+            st.warning("⚠️ Khu vực có mật độ thực vật thưa hoặc đang là đất trống/đô thị hóa.")
+
+    # Xóa hàm rác cũ không còn dùng đến nếu có ở file ai_engine.py để code sạch sẽ tuyệt đối!
