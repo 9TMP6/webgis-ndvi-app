@@ -165,7 +165,7 @@ with st.sidebar:
     with st.expander("⚙️ CẤU HÌNH BẢN ĐỒ", expanded=False):
         basemap_choice = st.radio(
             "Lớp bản đồ nền:",
-            ["Esri Satellite", "OpenStreetMap", "CartoDB Dark", "Google Hybrid"]
+            ["Esri Satellite", "Google Hybrid"]
         )
 
     # Menu 3: Xuất dữ liệu & báo cáo
