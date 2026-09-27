@@ -1,12 +1,41 @@
+import base64
+import io
 import streamlit as st
 import pandas as pd
+from PIL import Image, ImageDraw
 from config import LOCATION_DATA
+from utils.map_utils import generate_ndvi_raster
+
+
+def create_placeholder_png() -> bytes:
+    """
+    Tạo ảnh PNG mặc định thông báo chưa có dữ liệu khi người dùng bấm tải ảnh sớm 🎨
+    """
+    img = Image.new('RGB', (600, 350), color='#1E293B')  # Nền tối Slate đẹp mắt
+    draw = ImageDraw.Draw(img)
+    
+    # Vẽ khung viền trang trí
+    draw.rectangle([15, 15, 585, 335], outline='#38BDF8', width=2)
+    
+    # Vẽ các dòng chữ thông báo mặc định
+    draw.text((160, 130), "⚠️ CHUA CO DU LIEU DU BAO", fill='#FACC15')
+    draw.text((110, 170), "Vui long nhan 'CHAY DU BAO AI' de tao anh NDVI!", fill='#94A3B8')
+    
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue()
 
 
 def render_sidebar(df: pd.DataFrame = None):
     """
-    Render Sidebar bộ lọc, cấu hình bản đồ và xuất dữ liệu CSV thực tế 📊
+    Render Sidebar bộ lọc, cấu hình bản đồ và xuất dữ liệu CSV / PNG (Luôn sáng nút) 📊🖼️
     """
+    # 🟢 Ưu tiên lấy df từ session_state nếu truyền vào bị None
+    if df is None or df.empty:
+        df = st.session_state.get("ndvi_df", None)
+
+    has_data = df is not None and not df.empty
+
     with st.sidebar:
         with st.expander("🔮 BỘ LỌC DỰ BÁO", expanded=True):
             selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
@@ -27,36 +56,56 @@ def render_sidebar(df: pd.DataFrame = None):
             show_boundaries = st.checkbox("🗺️ Hiển thị ranh giới (HCM-34)", value=True)
 
         with st.expander("📊 XUẤT DỮ LIỆU & BÁO CÁO", expanded=False):
-            # 🟢 XUẤT FILE CSV CHUẨN TỪ DỮ LIỆU TRUY VẤN THỰC TẾ
-            if df is not None and not df.empty:
-                # utf-8-sig giúp Excel đọc đúng font tiếng Việt không bị lỗi
+            # 🟢 1. XUẤT FILE CSV
+            if has_data:
                 csv_bytes = df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="📥 Xuất dữ liệu CSV",
-                    data=csv_bytes,
-                    file_name=f"ndvi_{selected_district}_{selected_year}_{selected_month:02d}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    help="Click để tải về toàn bộ tập dữ liệu NDVI đã truy vấn"
-                )
+                file_name_csv = f"ndvi_{selected_district}_{selected_year}_{selected_month:02d}.csv"
             else:
-                st.download_button(
-                    label="📥 Xuất dữ liệu CSV",
-                    data=b"",
-                    file_name=f"ndvi_{selected_district}.csv",
-                    mime="text/csv",
-                    disabled=True,
-                    use_container_width=True,
-                    help="Vui lòng nhấn '🚀 CHẠY DỰ BÁO AI' để có dữ liệu xuất CSV"
-                )
+                # File CSV mặc định khi chưa chạy dự báo
+                csv_default = "Trạng_thái,Thông_báo\nCHƯA_DỰ_BÁO,Vui lòng nhấn 'CHẠY DỰ BÁO AI' trên ứng dụng để cập nhật dữ liệu NDVI mới nhất."
+                csv_bytes = csv_default.encode('utf-8-sig')
+                file_name_csv = f"ndvi_{selected_district}_mau_mac_dinh.csv"
 
-            st.download_button(
-                label="🖼️ Xuất ảnh NDVI (.PNG)",
-                data=b"PNG_DUMMY_BYTES",
-                file_name=f"ndvi_map_{selected_district}.png",
-                mime="image/png",
-                use_container_width=True
+            btn_csv = st.download_button(
+                label="📥 Xuất dữ liệu CSV",
+                data=csv_bytes,
+                file_name=file_name_csv,
+                mime="text/csv",
+                use_container_width=True,
+                help="Click để tải dữ liệu CSV về máy"
             )
+            if btn_csv and not has_data:
+                st.toast("ℹ️ Bạn đã tải file CSV mẫu. Hãy nhấn '🚀 CHẠY DỰ BÁO AI' để có dữ liệu thực tế nhé!", icon="🔔")
+
+            # 🟢 2. XUẤT FILE ẢNH RASTER PNG
+            png_bytes = None
+            if has_data:
+                try:
+                    img_base64, _ = generate_ndvi_raster(df)
+                    if img_base64 and "," in img_base64:
+                        base64_str = img_base64.split(",")[1]
+                        png_bytes = base64.b64decode(base64_str)
+                except Exception:
+                    png_bytes = None
+
+            if png_bytes is None:
+                # Ảnh PNG mặc định khi chưa chạy dự báo
+                png_bytes = create_placeholder_png()
+                file_name_png = f"ndvi_map_{selected_district}_mac_dinh.png"
+            else:
+                file_name_png = f"ndvi_map_{selected_district}_{selected_year}_{selected_month:02d}.png"
+
+            btn_png = st.download_button(
+                label="🖼️ Xuất ảnh NDVI (.PNG)",
+                data=png_bytes,
+                file_name=file_name_png,
+                mime="image/png",
+                use_container_width=True,
+                help="Click để tải ảnh NDVI PNG về máy"
+            )
+            if btn_png and not has_data:
+                st.toast("ℹ️ Bạn vừa tải ảnh mẫu mặc định. Hãy bấm '🚀 CHẠY DỰ BÁO AI' để tạo bản đồ NDVI nhé!", icon="🖼️")
+
             if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
                 st.info("Chức năng kết xuất PDF đang được xử lý.")
 
