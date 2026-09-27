@@ -1,5 +1,6 @@
 # config.py
-
+import streamlit as st
+DATABASE_URL = st.secrets["postgres"]["url"]
 LOCATION_DATA = {
     "TP. Hồ Chí Minh": {
         # 🌐 Tổng quan Toàn Thành phố
