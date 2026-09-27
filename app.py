@@ -14,7 +14,6 @@ st.markdown("""
     <style>
         /* Thu hẹp chiều rộng của thanh sidebar */
         [data-testid="stSidebar"] {
-            min-width: 240px !important;
             max-width: 260px !important;
         }
     </style>
