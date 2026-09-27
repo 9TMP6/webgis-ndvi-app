@@ -11,3 +11,6 @@ psycopg2-binary
 scipy
 matplotlib
 Pillow
+onnxruntime>=1.15.0
+numpy>=1.23.2
+pandas>=1.5.0
