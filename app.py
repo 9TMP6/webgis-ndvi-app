@@ -10,6 +10,15 @@ from utils.data_loader import load_ndvi_data_with_ai_fallback
 
 # 1. Cấu hình Trang
 st.set_page_config(layout="wide", page_title="GEO-NDVI INTELLIGENCE PLATFORM", page_icon="🌐", initial_sidebar_state="expanded")
+st.markdown("""
+    <style>
+        /* Thu hẹp chiều rộng của thanh sidebar */
+        [data-testid="stSidebar"] {
+            min-width: 240px !important;
+            max-width: 260px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # 2. Top Header
