@@ -47,3 +47,22 @@ def render_metrics(df=None):
             <div class="legend-item"><span class="color-box" style="background: #1a9641;"></span> 0.3 - 1.0 (Thảm thực vật dày)</div>
         </div>
     """, unsafe_allow_html=True)
+
+def render_csv_export_button(df_result: pd.DataFrame, selected_date: str):
+    """
+    Tạo nút xuất file CSV chuẩn UTF-8 tương thích tốt với Excel 📥
+    """
+    if df_result is None or df_result.empty:
+        st.warning("⚠️ Không có dữ liệu để xuất file CSV.")
+        return
+
+    # Chuẩn hóa định dạng CSV hỗ trợ Tiếng Việt trong Excel (utf-8-sig)
+    csv_bytes = df_result.to_csv(index=False).encode('utf-8-sig')
+
+    st.download_button(
+        label="📥 Tải xuống dữ liệu CSV",
+        data=csv_bytes,
+        file_name=f"ndvi_data_{selected_date}.csv",
+        mime="text/csv",
+        help="Bấm để tải file CSV chứa các trường dữ liệu đã truy vấn và dự báo ✨"
+    )
