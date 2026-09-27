@@ -6,7 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 # =============================================================================
-# 1. CẤU HÌNH TRANG & CUSTOM CSS (FONT SIZE THU NHỎ & COMPACT UI)
+# 1. CẤU HÌNH TRANG & CUSTOM CSS (THU NHỎ FONT & ĐẨY NỘI DUNG XUỐNG TRÁNH HEADER)
 # =============================================================================
 st.set_page_config(
     layout="wide",
@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS thu nhỏ font size tổng thể và tối ưu khoảng trắng
+# Custom CSS thu nhỏ font size tổng thể và đẩy khoảng cách top xuống dưới
 st.markdown("""
     <style>
     /* Reset & Dark Background */
@@ -27,7 +27,7 @@ st.markdown("""
         color: #E2E8F0;
     }
     
-    /* Top Header Bar */
+    /* Top Header Bar Custom */
     .top-header {
         background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%);
         padding: 8px 16px;
@@ -55,21 +55,21 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Thu gọn padding chính của Streamlit */
+    /* 📌 ĐẨY NỘI DUNG CHÍNH DIỆN XUỐNG DƯỚI THANH SHARE/GITHUB */
     .block-container {
-        padding-top: 0.8rem !important;
+        padding-top: 3.8rem !important; /* Đã tăng padding top để tránh che */
         padding-bottom: 0.8rem !important;
         padding-left: 1rem !important;
         padding-right: 0.3rem !important; /* Sát mép phải */
     }
 
-    /* Sidebar Styling & Expander compact */
+    /* 📌 ĐẨY NỘI DUNG SIDEBAR BÊN TRÁI XUỐNG BẰNG NHAU */
     section[data-testid="stSidebar"] {
         background-color: #0F172A;
         border-right: 1px solid #1E293B;
     }
     div[data-testid="stSidebarUserContent"] {
-        padding-top: 0.5rem !important;
+        padding-top: 3.8rem !important; /* Đã tăng padding top cho Sidebar */
     }
     .stMultiSelect, .stSelectbox, .stDateInput {
         font-size: 0.8rem !important;
