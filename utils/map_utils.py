@@ -11,14 +11,19 @@ import base64
 
 def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: str = 'nearest'):
     """
-    Tạo bản đồ NDVI sắc nét từng pixel 10m (Sentinel-2)
-    
-    :param df: DataFrame chứa longitude, latitude, ndvi_mean
-    :param target_res_meters: Độ phân giải mong muốn (mặc định 10m x 10m)
-    :param method: 'nearest' (sắc nét từng pixel vuông 10m) hoặc 'linear' (làm mịn dải màu)
+    Tạo bản đồ NDVI sắc nét từng pixel 10m (Sentinel-2) an toàn, chống crash ứng dụng.
     """
+    try:
+        from scipy.interpolate import griddata
+    except ImportError:
+        print("⚠️ Thiếu thư viện scipy. Hãy chạy: pip install scipy")
+        return None, None
+
+    if df is None or df.empty:
+        return None, None
+
+    # Lọc bỏ dòng khuyết tọa độ hoặc giá trị NDVI
     df_clean = df.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
-    
     if df_clean.empty:
         return None, None
 
@@ -26,11 +31,14 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     lats = df_clean['latitude'].values
     ndvis = df_clean['ndvi_mean'].values
 
-    lon_min, lon_max = lons.min(), lons.max()
-    lat_min, lat_max = lats.min(), lats.max()
+    lon_min, lon_max = float(lons.min()), float(lons.max())
+    lat_min, lat_max = float(lats.min()), float(lats.max())
 
-    # 1. Tính toán số lượng Pixel chính xác cho độ phân giải target_res_meters (10m)
-    # 1 độ vĩ độ ~ 111,000 mét
+    # Nếu tọa độ không hợp lệ
+    if lon_min == lon_max or lat_min == lat_max:
+        return None, None
+
+    # 1. Quy đổi độ phân giải sang pixel 10m
     lat_center = (lat_min + lat_max) / 2.0
     meters_per_deg_lat = 111000.0
     meters_per_deg_lon = 111000.0 * np.cos(np.radians(lat_center))
@@ -38,25 +46,29 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     width_meters = (lon_max - lon_min) * meters_per_deg_lon
     height_meters = (lat_max - lat_min) * meters_per_deg_lat
 
-    # Số lượng ô lưới (pixels)
     grid_cols = int(max(width_meters / target_res_meters, 50))
     grid_rows = int(max(height_meters / target_res_meters, 50))
 
-    # Giới hạn tối đa 2000px để tránh tràn bộ nhớ trình duyệt WebGIS
-    grid_cols = min(grid_cols, 2000)
-    grid_rows = min(grid_rows, 2000)
+    # Giới hạn kích thước lưới tối đa để bảo vệ bộ nhớ RAM
+    grid_cols = min(grid_cols, 1000)
+    grid_rows = min(grid_rows, 1000)
 
     grid_lon = np.linspace(lon_min, lon_max, grid_cols)
     grid_lat = np.linspace(lat_min, lat_max, grid_rows)
     grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 
-    # 2. Nội suy 'nearest' để giữ nguyên góc cạnh vuông vức của Pixel 10m
+    # 2. Nội suy điểm NDVI
     grid_ndvi = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method=method)
 
-    # 3. Bảng màu NDVI rực rỡ (Đỏ -> Cam -> Vàng -> Xanh lá tươi)
+    # Xử lý các điểm NaN nếu có
+    if np.isnan(grid_ndvi).any():
+        grid_ndvi_fill = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='nearest')
+        grid_ndvi = np.where(np.isnan(grid_ndvi), grid_ndvi_fill, grid_ndvi)
+
+    # 3. Dải màu NDVI rực rỡ (Đỏ/Cam -> Vàng -> Xanh lá tươi)
     colors = ["#d73027", "#f46d43", "#fdae61", "#fee08b", "#a6d96a", "#1a9850", "#006837"]
     cmap = mcolors.LinearSegmentedColormap.from_list("ndvi_cmap", colors)
-    
+
     vmin = max(-0.2, float(ndvis.min()))
     vmax = min(0.9, float(ndvis.max()))
     if vmin >= vmax:
@@ -65,19 +77,19 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     rgba_img = cmap(norm(grid_ndvi))
 
-    # Đảo trục Y cho đúng hệ tọa độ GIS
+    # Đảo ngược trục Y đúng hệ tọa độ GIS
     rgba_img = np.flipud(rgba_img)
-    
+
     img_uint8 = (rgba_img * 255).astype(np.uint8)
     img = Image.fromarray(img_uint8)
-    
+
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
     buffer.seek(0)
 
     img_base64 = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode('utf-8')
     bounds = [[lat_min, lon_min], [lat_max, lon_max]]
-    
+
     return img_base64, bounds
     
 def build_folium_map(df: pd.DataFrame, selected_date: str):
