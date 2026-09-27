@@ -46,3 +46,24 @@ def load_ndvi_data(district_name: str = None, limit: int = 2000):
     except Exception as e:
         st.error(f"❌ Lỗi khi tải dữ liệu từ Supabase Database: {e}")
         return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
+def load_ndvi_by_date(selected_date: str) -> pd.DataFrame:
+    """
+    Truy vấn dữ liệu NDVI từ Supabase theo tháng/năm (VD: '2019-01')
+    """
+    db_url = st.secrets["postgres"]["url"]
+    engine = create_engine(db_url)
+    
+    query = f"""
+        SELECT longitude, latitude, ndvi_mean 
+        FROM ndvi_records 
+        WHERE date = '{selected_date}'
+    """
+    
+    try:
+        df = pd.read_sql(query, engine)
+        return df
+    except Exception as e:
+        st.error(f"⚠️ Lỗi khi truy vấn CSDL: {e}")
+        return pd.DataFrame()
