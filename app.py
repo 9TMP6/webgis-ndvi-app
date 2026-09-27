@@ -4,9 +4,10 @@ from streamlit_folium import st_folium
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import requests
 
 # =============================================================================
-# 1. CẤU HÌNH TRANG & CUSTOM CSS (THU NHỎ FONT & ĐẨY NỘI DUNG XUỐNG TRÁNH HEADER)
+# 1. CẤU HÌNH TRANG & CUSTOM CSS
 # =============================================================================
 st.set_page_config(
     layout="wide",
@@ -15,19 +16,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS thu nhỏ font size tổng thể và đẩy khoảng cách top xuống dưới
 st.markdown("""
     <style>
-    /* Reset & Dark Background */
     html, body, [class*="css"] {
-        font-size: 13px !important; /* Thu nhỏ font size toàn bộ app */
+        font-size: 13px !important;
     }
     .stApp {
         background-color: #0B0F17;
         color: #E2E8F0;
     }
     
-    /* Top Header Bar Custom */
     .top-header {
         background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%);
         padding: 8px 16px;
@@ -55,27 +53,24 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* 📌 ĐẨY NỘI DUNG CHÍNH DIỆN XUỐNG DƯỚI THANH SHARE/GITHUB */
     .block-container {
-        padding-top: 3.8rem !important; /* Đã tăng padding top để tránh che */
+        padding-top: 3.8rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1rem !important;
-        padding-right: 0.3rem !important; /* Sát mép phải */
+        padding-right: 0.3rem !important;
     }
 
-    /* 📌 ĐẨY NỘI DUNG SIDEBAR BÊN TRÁI XUỐNG BẰNG NHAU */
     section[data-testid="stSidebar"] {
         background-color: #0F172A;
         border-right: 1px solid #1E293B;
     }
     div[data-testid="stSidebarUserContent"] {
-        padding-top: 3.8rem !important; /* Đã tăng padding top cho Sidebar */
+        padding-top: 3.8rem !important;
     }
     .stMultiSelect, .stSelectbox, .stDateInput {
         font-size: 0.8rem !important;
     }
 
-    /* Metric Cards Cột Phải */
     .stat-box {
         background: #151D2A;
         border: 1px solid #26334D;
@@ -96,7 +91,6 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* Panel Chú thích NDVI */
     .legend-panel {
         background: #151D2A;
         border: 1px solid #26334D;
@@ -122,7 +116,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# 2. TOP HEADER BAR
+# 2. HÀM CACHE LOAD DỮ LIỆU GEOJSON RANH GIỚI TỈNH (TRÁNH TẢI LẠI NHIỀU LẦN)
+# =============================================================================
+@st.cache_data
+def get_vietnam_provinces_geojson():
+    # URL GeoJSON ranh giới các tỉnh Việt Nam
+    url = "https://raw.githubusercontent.com/hangha2001/GeoJSON_Vietnam/main/vietnam_provinces.geojson"
+    try:
+        response = requests.get(url, timeout=10)
+        return response.json()
+    except Exception as e:
+        st.error(f"Không thể tải dữ liệu ranh giới: {e}")
+        return None
+
+# =============================================================================
+# 3. TOP HEADER BAR
 # =============================================================================
 st.markdown("""
     <div class="top-header">
@@ -132,7 +140,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# 3. DỮ LIỆU TỌA ĐỘ VỊ TRÍ
+# 4. DỮ LIỆU TỌA ĐỘ VỊ TRÍ
 # =============================================================================
 LOCATION_DATA = {
     "TP. Hồ Chí Minh": {
@@ -149,7 +157,7 @@ LOCATION_DATA = {
 }
 
 # =============================================================================
-# 4. SIDEBAR - GÔM VÀO CÁC MENU THẢ DOWN (EXPANDERS)
+# 5. SIDEBAR
 # =============================================================================
 with st.sidebar:
     # Menu 1: Bộ lọc dự báo
@@ -158,14 +166,12 @@ with st.sidebar:
         district_options = list(LOCATION_DATA[selected_province].keys())
         selected_district = st.selectbox("Quận / Huyện / Phường:", district_options)
         
-        # 🗓️ Bộ chọn mốc thời gian (Chỉ chọn Tháng / Năm)
         col_m, col_y = st.columns(2)
         with col_m:
-            selected_month = st.selectbox("Tháng:", list(range(1, 13)), index=8) # Mặc định Tháng 9
+            selected_month = st.selectbox("Tháng:", list(range(1, 13)), index=8)
         with col_y:
-            selected_year = st.selectbox("Năm:", list(range(2017, 2028)), index=9) # Mặc định Năm 2026
+            selected_year = st.selectbox("Năm:", list(range(2017, 2028)), index=9)
             
-        # Quy đổi thành mốc ngày đầu tháng để giữ nguyên tính tương thích
         selected_time = pd.to_datetime(f"{selected_year}-{selected_month:02d}-01")
         
         btn_predict = st.button("🚀 CHẠY DỰ BÁO AI", use_container_width=True, type="primary")
@@ -176,6 +182,9 @@ with st.sidebar:
             "Lớp bản đồ nền:",
             ["Esri Satellite", "Google Hybrid"]
         )
+        
+        # 📌 Nút Checkbox Bật / Tắt Ranh giới tỉnh
+        show_boundaries = st.checkbox("🗺️ Hiển thị ranh giới tỉnh", value=True)
 
     # Menu 3: Xuất dữ liệu & báo cáo
     with st.expander("📊 XUẤT DỮ LIỆU & BÁO CÁO", expanded=False):
@@ -206,11 +215,10 @@ with st.sidebar:
         if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
             st.info("Chức năng kết xuất PDF đang được xử lý.")
 
-# Lấy tọa độ vị trí
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 
 # =============================================================================
-# 5. CHÍNH DIỆN: BẢN ĐỒ & CỘT CHỈ SỐ BÊN PHẢI
+# 6. CHÍNH DIỆN: BẢN ĐỒ & CỘT CHỈ SỐ BÊN PHẢI
 # =============================================================================
 col_map, col_metrics = st.columns([3.3, 1.0])
 
@@ -231,16 +239,35 @@ with col_map:
     else:
         folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap").add_to(m)
 
+    # 📌 XỬ LÝ ẨN / HIỆN RANH GIỚI TỈNH KHI ĐƯỢC TÍCH CHỌN
+    if show_boundaries:
+        geojson_data = get_vietnam_provinces_geojson()
+        if geojson_data:
+            folium.GeoJson(
+                geojson_data,
+                name="Ranh giới Tỉnh/Thành",
+                style_function=lambda feature: {
+                    'fillColor': 'transparent', # Trong suốt nền
+                    'color': '#38BDF8',        # Màu đường ranh giới (Xanh Cyan)
+                    'weight': 1.8,             # Độ dày đường
+                    'dashArray': '4, 4',       # Đường nét đứt
+                    'fillOpacity': 0,
+                },
+                tooltip=folium.GeoJsonTooltip(
+                    fields=['name'],           # Hiển thị tên tỉnh khi rê chuột vào
+                    aliases=['Tỉnh/TP:'],
+                    localize=True
+                )
+            ).add_to(m)
+
     folium.LayerControl().add_to(m)
     
-    # Hiển thị Map gọn gàng
     st_folium(m, width="100%", height=500)
 
 # --- CỘT PHẢI: CHỈ SỐ + DONUT CHART + BẢNG CHÚ THÍCH ---
 with col_metrics:
     st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #94A3B8;'>📈 CHỈ SỐ VÙNG</p>", unsafe_allow_html=True)
     
-    # 3 ô chỉ số thu nhỏ font
     st.markdown("""
         <div class="stat-box">
             <div class="stat-title">NDVI Mean</div>
@@ -256,7 +283,6 @@ with col_metrics:
         </div>
     """, unsafe_allow_html=True)
 
-    # Donut Ring Chart thu nhỏ
     fig_ring = go.Figure(go.Pie(
         values=[75, 25],
         hole=0.75,
@@ -280,7 +306,6 @@ with col_metrics:
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
     st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
 
-    # Bảng chú thích NDVI bên cột phải
     st.markdown("""
         <div class="legend-panel">
             <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #38BDF8;">Chú giải chỉ số NDVI</div>
@@ -300,7 +325,7 @@ with col_metrics:
     """, unsafe_allow_html=True)
 
 # =============================================================================
-# 6. PHẦN DƯỚI: BIỂU ĐỒ CHUỖI THỜI GIAN & KẾT QUẢ TÓM TẮT
+# 7. PHẦN DƯỚI: BIỂU ĐỒ CHUỖI THỜI GIAN & KẾT QUẢ TÓM TẮT
 # =============================================================================
 st.markdown("---")
 st.markdown("<p style='font-weight: bold; font-size: 0.9rem;'>📈 DIỄN BIẾN CHUỖI THỜI GIAN & DỰ BÁO AI (2017 - 2027)</p>", unsafe_allow_html=True)
@@ -328,7 +353,6 @@ fig_chart.update_layout(
 )
 st.plotly_chart(fig_chart, use_container_width=True)
 
-# Báo cáo tóm tắt
 c1, c2, c3, c4 = st.columns(4)
 with c1: st.info(f"**Vùng:** {selected_district}")
 with c2: st.info(f"**Tỉnh/TP:** {selected_province}")
