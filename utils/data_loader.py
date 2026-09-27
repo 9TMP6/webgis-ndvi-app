@@ -10,7 +10,7 @@ def get_db_engine():
     return create_engine(DATABASE_URL)
 
 @st.cache_data
-def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"): 
+def load_local_shapefile(shp_path="HCM-34-Json/HCM-34-v2.json"): 
     try:
         gdf = gpd.read_file(shp_path)
         if gdf.crs is not None and gdf.crs != "EPSG:4326":
