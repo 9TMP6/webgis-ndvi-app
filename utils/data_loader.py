@@ -20,33 +20,46 @@ def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"):
         return None
 
 @st.cache_data(ttl=300)
-def load_ndvi_data(district_name: str = None, limit: int = 2000):
-    """Lấy dữ liệu NDVI mới nhất từ Supabase theo khu vực"""
+def load_ndvi_data(year: int, month: int):
+    """
+    Truy vấn TẤT CẢ các điểm GRID theo đúng Tháng & Năm được chọn từ Supabase
+    Cấu trúc bảng: grid_id, date, day, month, year, longitude, latitude, ndvi_mean...
+    """
     engine = get_db_engine()
     try:
-        query = """
-            SELECT grid_id, date, longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
+        # Truy vấn trực tiếp theo cột year và month trong CSDL của bạn
+        query = text("""
+            SELECT longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
             FROM public.ndvi_records
-        """
+            WHERE year = :year AND month = :month
+        """)
         
-        # Lọc theo quận/huyện nếu có cột district trong database
-        if district_name and district_name != "Toàn tỉnh/TP":
-            query += f" WHERE district = :district"
-            query += " ORDER BY date DESC LIMIT :limit;"
-            df = pd.read_sql(text(query), engine, params={"district": district_name, "limit": limit})
-        else:
-            query += " ORDER BY date DESC LIMIT :limit;"
-            df = pd.read_sql(text(query), engine, params={"limit": limit})
+        df = pd.read_sql(query, engine, params={"year": year, "month": month})
 
-        if 'date' in df.columns and not df.empty:
-            df['date'] = pd.to_datetime(df['date'])
+        # Nếu không tìm thấy theo month/year dạng số, thử fallback theo chuỗi date ('YYYY-MM')
+        if df.empty:
+            date_str = f"{year}-{month:02d}"
+            query_fallback = text("""
+                SELECT longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
+                FROM public.ndvi_records
+                WHERE date LIKE :date_str
+            """)
+            df = pd.read_sql(query_fallback, engine, params={"date_str": f"{date_str}%"})
+
+        # Gom nhóm tọa độ trùng lặp để nội suy chính xác
+        if not df.empty:
+            df = df.groupby(['longitude', 'latitude'], as_index=False).agg({
+                'ndvi_mean': 'mean',
+                'ndvi_min': 'min',
+                'ndvi_max': 'max'
+            })
 
         return df
 
     except Exception as e:
-        st.error(f"❌ Lỗi khi tải dữ liệu từ Supabase Database: {e}")
+        st.error(f"❌ Lỗi khi tải dữ liệu NDVI từ Supabase: {e}")
         return pd.DataFrame()
-
+        
 @st.cache_data(ttl=3600)
 def load_ndvi_by_date(selected_date: str) -> pd.DataFrame:
     """
