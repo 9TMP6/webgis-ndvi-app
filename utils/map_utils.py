@@ -7,10 +7,12 @@ from scipy.interpolate import griddata
 from PIL import Image
 import folium
 from folium.raster_layers import ImageOverlay
+import base64
 
 def generate_ndvi_raster(df: pd.DataFrame, grid_resolution: int = 300):
     """
-    Nội suy toàn bộ các ô GRID trong CSDL thành dải ảnh NDVI (Cam -> Vàng -> Xanh)
+    Nội suy toàn bộ các ô GRID trong CSDL thành dải ảnh NDVI (Đỏ/Cam -> Vàng -> Xanh)
+    Trả về chuỗi Base64 Data URI để Folium Overlay hiển thị chuẩn xác 100%.
     """
     # Lọc bỏ dòng khuyết tọa độ hoặc giá trị NDVI
     df_clean = df.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
@@ -37,18 +39,23 @@ def generate_ndvi_raster(df: pd.DataFrame, grid_resolution: int = 300):
         grid_ndvi_nearest = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='nearest')
         grid_ndvi[nan_mask] = grid_ndvi_nearest[nan_mask]
 
-    # 3. Dải màu NDVI chuẩn: Đỏ/Cam (Phi thực vật) -> Vàng -> Xanh lá (Thực vật xanh)
+    # 3. Dải màu NDVI chuẩn rực rỡ: Đỏ/Cam (Đất/Đô thị) -> Vàng -> Xanh Lá Tươi (Thảm thực vật)
     colors = ["#d73027", "#f46d43", "#fdae61", "#fee08b", "#a6d96a", "#1a9850", "#006837"]
     cmap = mcolors.LinearSegmentedColormap.from_list("ndvi_cmap", colors)
     
-    # Chuẩn hóa NDVI trong khoảng -0.1 đến 0.7
-    norm = mcolors.Normalize(vmin=-0.1, vmax=0.7)
+    # Chuẩn hóa linh hoạt dựa trên khoảng giá trị NDVI thực tế
+    vmin = max(-0.2, float(ndvis.min()))
+    vmax = min(0.9, float(ndvis.max()))
+    if vmin >= vmax:
+        vmin, vmax = -0.1, 0.7
+
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     rgba_img = cmap(norm(grid_ndvi))
 
     # Đảo trục Y cho đúng chiều tọa độ bản đồ Folium
     rgba_img = np.flipud(rgba_img)
     
-    # Chuyển ma trận màu thành Byte PNG
+    # Chuyển ma trận màu thành PNG và mã hóa sang Base64 Data URI
     img_uint8 = (rgba_img * 255).astype(np.uint8)
     img = Image.fromarray(img_uint8)
     
@@ -56,9 +63,12 @@ def generate_ndvi_raster(df: pd.DataFrame, grid_resolution: int = 300):
     img.save(buffer, format="PNG")
     buffer.seek(0)
 
-    bounds = [[lat_min, lon_min], [lat_max, lon_max]]
-    return buffer, bounds
+    # 🟢 MÃ HÓA BASE64 DẠNG DATA URI CHUẨN CHO WEBGIS
+    img_base64 = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode('utf-8')
 
+    bounds = [[lat_min, lon_min], [lat_max, lon_max]]
+    return img_base64, bounds
+    
 def build_folium_map(df: pd.DataFrame, selected_date: str):
     """
     Dựng bản đồ Folium tích hợp lớp phủ ImageOverlay
