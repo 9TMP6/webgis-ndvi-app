@@ -1,17 +1,16 @@
 import io
+import base64
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from scipy.interpolate import griddata
 from PIL import Image
 import folium
 from folium.raster_layers import ImageOverlay
-import base64
+
 
 def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: str = 'nearest'):
     """
-    Tạo bản đồ NDVI sắc nét từng pixel 10m (Sentinel-2) an toàn, chống crash ứng dụng.
+    Tạo dải ảnh NDVI Base64 dạng raster độ phân giải 10m an toàn, chống sập app.
     """
     try:
         from scipy.interpolate import griddata
@@ -31,6 +30,7 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     lats = df_clean['latitude'].values
     ndvis = df_clean['ndvi_mean'].values
 
+    lon_min, lon_max = float(lons.min()), float(lats.max()) if len(lats) > 0 else (0.0, 0.0)
     lon_min, lon_max = float(lons.min()), float(lons.max())
     lat_min, lat_max = float(lats.min()), float(lats.max())
 
@@ -91,31 +91,32 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     bounds = [[lat_min, lon_min], [lat_max, lon_max]]
 
     return img_base64, bounds
-    
+
+
 def build_folium_map(df: pd.DataFrame, selected_date: str):
     """
-    Dựng bản đồ Folium tích hợp lớp phủ ImageOverlay
+    Dựng bản đồ Folium tích hợp lớp phủ ImageOverlay an toàn tuyệt đối
     """
-    # Mặc định tâm bản đồ TP.HCM
     m = folium.Map(
-        location=[10.7769, 106.7009], 
-        zoom_start=11, 
+        location=[10.7769, 106.7009],
+        zoom_start=11,
         tiles="OpenStreetMap"
     )
 
-    if not df.empty:
+    if df is not None and not df.empty:
         # Tạo Raster Overlay từ dữ liệu NDVI
-        img_buffer, bounds = generate_ndvi_raster(df)
+        img_base64, bounds = generate_ndvi_raster(df)
 
-        # Thêm ImageOverlay vào bản đồ
-        ImageOverlay(
-            image=img_buffer,
-            bounds=bounds,
-            opacity=0.65,
-            name=f"Lớp phủ NDVI ({selected_date})",
-            interactive=True
-        ).add_to(m)
+        # 🟢 BẮT BỘC KIỂM TRA ĐIỀU KIỆN NÀY ĐỂ TRÁNH TRUYỀN NONE VÀO IMAGEOVERLAY CAUSING CRASH
+        if img_base64 and bounds:
+            ImageOverlay(
+                image=img_base64,
+                bounds=bounds,
+                opacity=0.75,
+                name=f"Lớp phủ NDVI ({selected_date})",
+                interactive=True
+            ).add_to(m)
 
-        folium.LayerControl().add_to(m)
+            folium.LayerControl().add_to(m)
 
     return m
