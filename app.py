@@ -21,7 +21,9 @@ st.markdown("""
 # 3. Sidebar
 selected_province, selected_district, selected_time, basemap_choice, show_boundaries = render_sidebar()
 
-ndvi_df = load_ndvi_data(selected_district)
+year = selected_time.year
+month = selected_time.month
+ndvi_df = load_ndvi_data(year=year, month=month)
 
 # 4. Tọa độ chính
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
