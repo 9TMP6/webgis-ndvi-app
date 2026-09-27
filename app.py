@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import requests
-import geopandas as gpd  # 👈 1. THÊM GEOPANDAS ĐỂ ĐỌC SHAPEFILE 📦
+import geopandas as gpd 
 
 # =============================================================================
 # 1. CẤU HÌNH TRANG & CUSTOM CSS
