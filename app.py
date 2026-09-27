@@ -6,62 +6,43 @@ import numpy as np
 import plotly.graph_objects as go
 
 # =============================================================================
-# 1. CẤU HÌNH TRANG & CUSTOM CSS (CỐ ĐỊNH SIDEBAR LUÔN HIỆN)
+# 1. CẤU HÌNH TRANG & CUSTOM CSS (FONT SIZE THU NHỎ & COMPACT UI)
 # =============================================================================
 st.set_page_config(
     layout="wide",
     page_title="GEO-NDVI INTELLIGENCE PLATFORM",
     page_icon="🌐",
-    initial_sidebar_state="expanded"  # Mặc định luôn mở Sidebar 📌
+    initial_sidebar_state="expanded"
 )
 
+# Custom CSS thu nhỏ font size tổng thể và tối ưu khoảng trắng
 st.markdown("""
     <style>
-    /* 1. Ẩn Toolbar bên phải (Fork, GitHub, Menu 3 chấm) */
-    [data-testid="stToolbar"] {
-        visibility: hidden !important;
-        height: 0px !important;
-        position: absolute !important;
-        right: -9999px !important;
-    }
-    [data-testid="stDecoration"] {
-        display: none !important;
-    }
-    footer {
-        display: none !important;
-    }
+    /* Ẩn Header mặc định của Streamlit (chứa nút Fork, GitHub, Main Menu) */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
 
-    /* 2. ẨN HOÀN TOÀN NÚT THU / MỞ SIDEBAR (Nút << và >) -> Cố định Sidebar luôn hiện */
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
+/* Ẩn Footer "Made with Streamlit" dưới cùng */
+footer {
+    display: none !important;
+}
 
-    /* Header trong suốt */
-    header[data-testid="stHeader"] {
-        background: transparent !important;
-    }
-
+/* Ẩn bớt khoảng trống phía trên do header cũ để lại */
+.main .block-container {
+    padding-top: 1rem !important;
+}
+    
     /* Reset & Dark Background */
     html, body, [class*="css"] {
-        font-size: 13px !important;
+        font-size: 13px !important; /* Thu nhỏ font size toàn bộ app */
     }
     .stApp {
         background-color: #0B0F17;
         color: #E2E8F0;
     }
     
-    /* Padding trang chính */
-    .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 0.8rem !important;
-        padding-left: 1rem !important;
-        padding-right: 0.5rem !important;
-    }
-
-    /* Top Header Bar Custom */
+    /* Top Header Bar */
     .top-header {
         background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%);
         padding: 8px 16px;
@@ -70,7 +51,7 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     .brand-title {
         font-size: 1.1rem !important;
@@ -89,14 +70,24 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* Sidebar Styling */
+    /* Thu gọn padding chính của Streamlit */
+    .block-container {
+        padding-top: 0.8rem !important;
+        padding-bottom: 0.8rem !important;
+        padding-left: 1rem !important;
+        padding-right: 0.3rem !important; /* Sát mép phải */
+    }
+
+    /* Sidebar Styling & Expander compact */
     section[data-testid="stSidebar"] {
         background-color: #0F172A;
         border-right: 1px solid #1E293B;
-        width: 300px !important; /* Đảm bảo độ rộng cố định chuẩn đẹp */
     }
     div[data-testid="stSidebarUserContent"] {
-        padding-top: 1rem !important;
+        padding-top: 0.5rem !important;
+    }
+    .stMultiSelect, .stSelectbox, .stDateInput {
+        font-size: 0.8rem !important;
     }
 
     /* Metric Cards Cột Phải */
@@ -173,11 +164,10 @@ LOCATION_DATA = {
 }
 
 # =============================================================================
-# 4. SIDEBAR - CỐ ĐỊNH BÊN TRÁI
+# 4. SIDEBAR - GÔM VÀO CÁC MENU THẢ DOWN (EXPANDERS)
 # =============================================================================
 with st.sidebar:
-    st.markdown("<h3 style='color: #38BDF8; font-size: 1.1rem; font-weight: bold; margin-bottom: 15px;'>🎛️ BẢNG ĐIỀU KHIỂN</h3>", unsafe_allow_html=True)
-    
+    # Menu 1: Bộ lọc dự báo
     with st.expander("🔮 BỘ LỌC DỰ BÁO", expanded=True):
         selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
         district_options = list(LOCATION_DATA[selected_province].keys())
@@ -186,12 +176,14 @@ with st.sidebar:
         
         btn_predict = st.button("🚀 CHẠY DỰ BÁO AI", use_container_width=True, type="primary")
 
+    # Menu 2: Cấu hình bản đồ
     with st.expander("⚙️ CẤU HÌNH BẢN ĐỒ", expanded=False):
         basemap_choice = st.radio(
             "Lớp bản đồ nền:",
             ["Esri Satellite", "OpenStreetMap", "CartoDB Dark", "Google Hybrid"]
         )
 
+    # Menu 3: Xuất dữ liệu & báo cáo
     with st.expander("📊 XUẤT DỮ LIỆU & BÁO CÁO", expanded=False):
         sample_df = pd.DataFrame({
             "Lat": [LOCATION_DATA[selected_province][selected_district][0]],
@@ -220,6 +212,7 @@ with st.sidebar:
         if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
             st.info("Chức năng kết xuất PDF đang được xử lý.")
 
+# Lấy tọa độ vị trí
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 
 # =============================================================================
@@ -227,9 +220,11 @@ lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 # =============================================================================
 col_map, col_metrics = st.columns([3.3, 1.0])
 
+# --- CỘT GIỮA: BẢN ĐỒ VỆ TINH ---
 with col_map:
     m = folium.Map(location=[lat, lng], zoom_start=zoom, tiles=None)
     
+    # Sửa lỗi CartoDB Dark bằng Tile URL chuẩn không bị lỗi trắng
     if basemap_choice == "Esri Satellite":
         folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -249,11 +244,15 @@ with col_map:
         folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap").add_to(m)
 
     folium.LayerControl().add_to(m)
+    
+    # Hiển thị Map gọn gàng
     st_folium(m, width="100%", height=500)
 
+# --- CỘT PHẢI: CHỈ SỐ + DONUT CHART + BẢNG CHÚ THÍCH ---
 with col_metrics:
     st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #94A3B8;'>📈 CHỈ SỐ VÙNG</p>", unsafe_allow_html=True)
     
+    # 3 ô chỉ số thu nhỏ font
     st.markdown("""
         <div class="stat-box">
             <div class="stat-title">NDVI Mean</div>
@@ -269,6 +268,7 @@ with col_metrics:
         </div>
     """, unsafe_allow_html=True)
 
+    # Donut Ring Chart thu nhỏ
     fig_ring = go.Figure(go.Pie(
         values=[75, 25],
         hole=0.75,
@@ -292,6 +292,7 @@ with col_metrics:
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
     st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
 
+    # Bảng chú thích NDVI bên cột phải
     st.markdown("""
         <div class="legend-panel">
             <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #38BDF8;">Chú giải chỉ số NDVI</div>
