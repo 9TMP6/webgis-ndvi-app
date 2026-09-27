@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from config import LOCATION_DATA, CUSTOM_CSS
 from components.sidebar import render_sidebar
 from components.map_view import render_map
