@@ -8,14 +8,15 @@ import folium
 from folium.raster_layers import ImageOverlay
 
 
-def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: str = 'nearest'):
+def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     """
-    Tạo dải ảnh NDVI Base64 dạng raster độ phân giải 10m an toàn, chống sập app.
+    Tạo ảnh NDVI mịn màng, dải màu chuyển tiếp mượt như ArcGIS bằng Gaussian Filter & Bicubic Resampling 🎨
     """
     try:
         from scipy.interpolate import griddata
+        from scipy.ndimage import gaussian_filter
     except ImportError:
-        print("⚠️ Thiếu thư viện scipy. Hãy chạy: pip install scipy")
+        print("⚠️ Thiếu thư viện scipy.")
         return None, None
 
     if df is None or df.empty:
@@ -30,15 +31,13 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     lats = df_clean['latitude'].values
     ndvis = df_clean['ndvi_mean'].values
 
-    lon_min, lon_max = float(lons.min()), float(lats.max()) if len(lats) > 0 else (0.0, 0.0)
     lon_min, lon_max = float(lons.min()), float(lons.max())
     lat_min, lat_max = float(lats.min()), float(lats.max())
 
-    # Nếu tọa độ không hợp lệ
     if lon_min == lon_max or lat_min == lat_max:
         return None, None
 
-    # 1. Quy đổi độ phân giải sang pixel 10m
+    # 1. Tính toán kích thước lưới Pixel
     lat_center = (lat_min + lat_max) / 2.0
     meters_per_deg_lat = 111000.0
     meters_per_deg_lon = 111000.0 * np.cos(np.radians(lat_center))
@@ -46,42 +45,51 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
     width_meters = (lon_max - lon_min) * meters_per_deg_lon
     height_meters = (lat_max - lat_min) * meters_per_deg_lat
 
-    grid_cols = int(max(width_meters / target_res_meters, 50))
-    grid_rows = int(max(height_meters / target_res_meters, 50))
+    grid_cols = int(max(width_meters / target_res_meters, 80))
+    grid_rows = int(max(height_meters / target_res_meters, 80))
 
-    # Giới hạn kích thước lưới tối đa để bảo vệ bộ nhớ RAM
-    grid_cols = min(grid_cols, 1000)
-    grid_rows = min(grid_rows, 1000)
+    # Giới hạn kích thước lưới an toàn RAM cho Streamlit Cloud
+    grid_cols = min(grid_cols, 450)
+    grid_rows = min(grid_rows, 450)
 
     grid_lon = np.linspace(lon_min, lon_max, grid_cols)
     grid_lat = np.linspace(lat_min, lat_max, grid_rows)
     grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
 
-    # 2. Nội suy điểm NDVI
-    grid_ndvi = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method=method)
+    # 2. Nội suy 'linear' tạo dải màu liên tục mượt mà
+    grid_ndvi = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='linear')
 
-    # Xử lý các điểm NaN nếu có
+    # Xử lý các ô biên bị NaN bằng 'nearest'
     if np.isnan(grid_ndvi).any():
         grid_ndvi_fill = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='nearest')
         grid_ndvi = np.where(np.isnan(grid_ndvi), grid_ndvi_fill, grid_ndvi)
 
-    # 3. Dải màu NDVI rực rỡ (Đỏ/Cam -> Vàng -> Xanh lá tươi)
-    colors = ["#d73027", "#f46d43", "#fdae61", "#fee08b", "#a6d96a", "#1a9850", "#006837"]
-    cmap = mcolors.LinearSegmentedColormap.from_list("ndvi_cmap", colors)
+    # 3. 🪄 BÍ KÍP ARCGIS: Dùng Gaussian Filter làm mịn dải ranh giới màu (sigma = 1.2 -> 1.5)
+    grid_ndvi_smooth = gaussian_filter(grid_ndvi, sigma=1.3)
 
-    vmin = max(-0.2, float(ndvis.min()))
-    vmax = min(0.9, float(ndvis.max()))
-    if vmin >= vmax:
-        vmin, vmax = -0.1, 0.7
+    # 4. Bảng màu gradient 10 điểm mượt như dải màu RdYlGn chuyên dụng của ArcGIS
+    colors = [
+        "#a50026", "#d73027", "#f46d43", "#fdae61", 
+        "#fee08b", "#d9ef8b", "#a6d96a", "#66bd63", 
+        "#1a9850", "#006837"
+    ]
+    cmap = mcolors.LinearSegmentedColormap.from_list("arcgis_smooth_ndvi", colors)
 
-    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-    rgba_img = cmap(norm(grid_ndvi))
+    norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
+    rgba_img = cmap(norm(grid_ndvi_smooth))
 
-    # Đảo ngược trục Y đúng hệ tọa độ GIS
+    # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
+    alpha_channel = np.ones_like(grid_ndvi_smooth)
+    alpha_channel[grid_ndvi_smooth < 0.1] = 0.0
+    rgba_img[..., 3] = alpha_channel
+
+    # Đảo trục Y cho đúng tọa độ GIS
     rgba_img = np.flipud(rgba_img)
 
+    # 5. Khử răng cưa hình ảnh với Bicubic Resampling (Phóng x2 kích thước mịn căng)
     img_uint8 = (rgba_img * 255).astype(np.uint8)
     img = Image.fromarray(img_uint8)
+    img = img.resize((grid_cols * 2, grid_rows * 2), resample=Image.Resampling.BICUBIC)
 
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
@@ -95,7 +103,7 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10, method: 
 
 def build_folium_map(df: pd.DataFrame, selected_date: str):
     """
-    Dựng bản đồ Folium tích hợp lớp phủ ImageOverlay an toàn tuyệt đối
+    Dựng bản đồ Folium tích hợp lớp phủ ImageOverlay an toàn
     """
     m = folium.Map(
         location=[10.7769, 106.7009],
@@ -104,15 +112,13 @@ def build_folium_map(df: pd.DataFrame, selected_date: str):
     )
 
     if df is not None and not df.empty:
-        # Tạo Raster Overlay từ dữ liệu NDVI
         img_base64, bounds = generate_ndvi_raster(df)
 
-        # 🟢 BẮT BỘC KIỂM TRA ĐIỀU KIỆN NÀY ĐỂ TRÁNH TRUYỀN NONE VÀO IMAGEOVERLAY CAUSING CRASH
         if img_base64 and bounds:
             ImageOverlay(
                 image=img_base64,
                 bounds=bounds,
-                opacity=0.75,
+                opacity=0.80, # Độ rõ màu hoàn hảo
                 name=f"Lớp phủ NDVI ({selected_date})",
                 interactive=True
             ).add_to(m)
