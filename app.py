@@ -6,6 +6,7 @@ from components.map_view import render_map
 from components.metrics_view import render_metrics
 from components.chart_view import render_chart_and_summary
 from utils.data_loader import load_ndvi_data
+from utils.data_loader import load_ndvi_data_with_ai_fallback
 
 # 1. Cấu hình Trang
 st.set_page_config(layout="wide", page_title="GEO-NDVI INTELLIGENCE PLATFORM", page_icon="🌐", initial_sidebar_state="expanded")
@@ -31,18 +32,22 @@ if btn_predict:
     year = selected_time.year
     month = selected_time.month
     
-    with st.spinner(f"🌐 Đang truy vấn CSDL cho tháng {month}/{year}..."):
-        df_result = load_ndvi_data(year=year, month=month)
+    with st.spinner(f"🌐 Đang kiểm tra CSDL và chạy AI Engine cho tháng {month}/{year}..."):
+        # Gọi hàm kiểm tra CSDL kết hợp suy luận ONNX tự động
+        df_result, is_ai_generated = load_ndvi_data_with_ai_fallback(year=year, month=month)
         st.session_state["ndvi_df"] = df_result
 
-        # Thông báo Toast Alert trạng thái
+        # Thông báo trạng thái linh hoạt
         if df_result.empty:
-            st.toast(f"⚠️ Không tìm thấy dữ liệu cho tháng {month}/{year}", icon="❌")
-            st.warning(f"⚠️ **Không có dữ liệu:** Tháng **{month}/{year}** chưa có bản ghi NDVI trong CSDL Supabase. Bạn thử chọn mốc **Tháng 11/2020** nhé!")
+            st.toast(f"⚠️ Không thể tạo dữ liệu cho tháng {month}/{year}", icon="❌")
+            st.warning(f"⚠️ Không có dữ liệu và không thể suy luận cho tháng **{month}/{year}**.")
         else:
-            st.toast(f"✅ Tải thành công {len(df_result):,} điểm NDVI!", icon="🛰️")
-            st.success(f"🎉 **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô tọa độ NDVI cho Tháng **{month}/{year}**!")
-
+            if is_ai_generated:
+                st.toast(f"✨ AI Engine đã suy luận thành công {len(df_result):,} ô lưới NDVI bằng mô hình ONNX!", icon="🤖")
+                st.success(f"🚀 **AI Prediction:** Đã dự báo thành công **{len(df_result):,}** ô tọa độ NDVI cho Tháng **{month}/{year}** bằng mô hình `.onnx`!")
+            else:
+                st.toast(f"✅ Tải thành công {len(df_result):,} điểm NDVI từ CSDL!", icon="🛰️")
+                st.success(f"🎉 **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô tọa độ NDVI từ Supabase!")
 ndvi_df = st.session_state["ndvi_df"]
 
 # 5. Tọa độ chính
