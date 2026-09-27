@@ -85,7 +85,7 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         # 🚀 Chạy ONNX Batch Inference
         outputs = ort_session.run(None, {input_name: values_matrix})
         preds = outputs[0]  # Shape: [Batch_Size, 1] hoặc [Batch_Size]
-        print(f"👉 ONNX Raw Output -> Min: {preds.min():.4f}, Max: {preds.max():.4f}, Mean: {preds.mean():.4f}")
+        st.info(f"📊 Debug ONNX Output -> Min: {preds.min():.4f} | Max: {preds.max():.4f} | Mean: {preds.mean():.4f}")
         # 4. Xử lý kết quả trả về an toàn tuyệt đối
         target_date_str = target_date.strftime("%Y-%m-%d")
         predicted_rows = []
