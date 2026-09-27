@@ -3,52 +3,74 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
-import numpy as np
+from utils.data_loader import get_db_engine
 
 def render_chart_and_summary(selected_district, selected_province, selected_time, df=None):
     st.markdown("---")
     
+    # Tiêu đề hiển thị động theo mốc thời gian người dùng chọn
     time_str = selected_time.strftime('%m/%Y')
     st.markdown(f"<p style='font-weight: bold; font-size: 0.9rem;'>📈 BIẾN ĐỘNG NDVI (12 THÁNG QUA ĐẾN MỐC {time_str})</p>", unsafe_allow_html=True)
 
+    # Chuẩn hóa mốc thời gian mục tiêu (đầu tháng)
     target_date = pd.to_datetime(selected_time).replace(day=1)
     start_date = target_date - pd.DateOffset(months=12)
 
     historical_dates = []
     historical_ndvi = []
 
-    # Kiểm tra nếu df có dữ liệu lịch sử
-    if df is not None and not df.empty and 'date' in df.columns and 'ndvi_mean' in df.columns:
-        temp_df = df.copy()
-        temp_df['date'] = pd.to_datetime(temp_df['date']).dt.to_period('M').dt.to_timestamp()
+    # 1. Lấy 12 tháng lịch sử THẬT trực tiếp từ Database PostgreSQL
+    try:
+        engine = get_db_engine()
+        query = f"""
+            SELECT 
+                TO_CHAR(MAKE_DATE(year, month, 1), 'YYYY-MM-DD') AS date,
+                AVG(ndvi_mean) AS ndvi_mean
+            FROM public.ndvi_records
+            WHERE (year = {start_date.year} AND month >= {start_date.month})
+               OR (year > {start_date.year} AND year < {target_date.year})
+               OR (year = {target_date.year} AND month <= {target_date.month})
+            GROUP BY year, month
+            ORDER BY year, month
+        """
+        df_real = pd.read_sql(query, engine)
         
-        # Nếu df chỉ chứa đúng 1 dòng của tháng hiện tại (do kết quả chạy dự đoán AI trả về 1 mốc)
-        # Ta cần lấy chuỗi 12 tháng lịch sử từ gốc, ở đây dùng cách gom nhóm hoặc tạo dải chuẩn 12 tháng
-        mask = (temp_df['date'] >= start_date) & (temp_df['date'] <= target_date)
-        df_filtered = temp_df.loc[mask].groupby('date')['ndvi_mean'].mean().reset_index().sort_values('date')
-        
-        if len(df_filtered) >= 2:
-            historical_dates = df_filtered['date']
-            historical_ndvi = df_filtered['ndvi_mean']
+        if not df_real.empty:
+            df_real['date'] = pd.to_datetime(df_real['date'])
+            # Lọc đúng 12 tháng gần nhất tính đến tháng mục tiêu
+            mask = (df_real['date'] >= start_date) & (df_real['date'] <= target_date)
+            df_filtered = df_real.loc[mask].sort_values('date')
+            
+            if not df_filtered.empty:
+                historical_dates = df_filtered['date'].tolist()
+                historical_ndvi = df_filtered['ndvi_mean'].tolist()
+    except Exception as e:
+        print(f"[DB CHART ERROR]: {e}")
 
-    # Nếu số lượng điểm quá ít (< 2 điểm, nghĩa là chỉ có 1 chấm), ta ép tạo đủ 12 tháng bằng dữ liệu mô phỏng hoặc lấy mốc chuẩn
-    if len(historical_dates) < 2:
-        historical_dates = pd.date_range(end=target_date, periods=12, freq='MS')
-        # Nếu có giá trị mới nhất từ AI, gán điểm cuối cùng bằng giá trị đó cho chính xác
-        latest_from_ai = float(df['ndvi_mean'].mean()) if (df is not None and not df.empty and 'ndvi_mean' in df.columns) else 0.6
-        
-        base_vals = np.linspace(0.4, latest_from_ai, 12)
-        historical_ndvi = pd.Series(base_vals)
+    # 2. Nếu có kết quả dự đoán từ AI (df truyền vào), cập nhật điểm cuối cùng thành giá trị dự đoán thật
+    if df is not None and not df.empty and 'ndvi_mean' in df.columns:
+        ai_latest_val = float(df['ndvi_mean'].mean())
+        if len(historical_ndvi) > 0:
+            # Gán điểm cuối cùng thành giá trị AI dự đoán cho tháng mục tiêu
+            historical_ndvi[-1] = ai_latest_val
+        else:
+            # Fallback an toàn nếu DB trống
+            historical_dates = [target_date]
+            historical_ndvi = [ai_latest_val]
 
-    latest_ndvi = float(historical_ndvi.iloc[-1]) if len(historical_ndvi) > 0 else 0.5
+    # Chuyển đổi sang Series/Index để Plotly vẽ biểu đồ
+    dates_series = pd.Series(historical_dates)
+    ndvi_series = pd.Series(historical_ndvi)
 
-    # 2. Vẽ biểu đồ đường
+    latest_ndvi = float(ndvi_series.iloc[-1]) if len(ndvi_series) > 0 else 0.5
+
+    # 3. Vẽ biểu đồ đường với Plotly
     fig_chart = go.Figure()
     fig_chart.add_trace(go.Scatter(
-        x=historical_dates, 
-        y=historical_ndvi, 
+        x=dates_series, 
+        y=ndvi_series, 
         mode="lines+markers", 
-        name="Chuỗi NDVI (12 tháng)", 
+        name="Chuỗi NDVI (12 tháng thật)", 
         line=dict(color="#38BDF8", width=2),
         marker=dict(size=6)
     ))
@@ -65,7 +87,7 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
     )
     st.plotly_chart(fig_chart, use_container_width=True)
 
-    # 3. Trạng thái sức khỏe
+    # 4. Đánh giá trạng thái sức khỏe thảm thực vật
     if latest_ndvi >= 0.5:
         health_status = "Sức khỏe TỐT 🟢"
     elif latest_ndvi >= 0.2:
@@ -73,7 +95,7 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
     else:
         health_status = "Cần chú ý 🔴"
 
-    # 4. Thông tin bên dưới
+    # 5. Các thẻ thông tin bên dưới biểu đồ
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.info(f"**Vùng:** {selected_district}")
     with c2: st.info(f"**Tỉnh/TP:** {selected_province}")
