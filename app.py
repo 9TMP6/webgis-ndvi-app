@@ -2,203 +2,228 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
 from folium.plugins import Fullscreen
 
 
 # ============================================================
-# 1. CẤU HÌNH TRANG
+# 1. PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
+    page_title="GEO NDVI",
+    page_icon="🌍",
     layout="wide",
-    page_title="GEO NDVI WebGIS",
-    page_icon="🌐",
     initial_sidebar_state="expanded"
 )
 
 
 # ============================================================
-# 2. CSS
+# 2. GLOBAL STYLE
 # ============================================================
 
 st.markdown("""
 <style>
 
-.stApp {
-    background-color: #121824;
-    color: #E2E8F0;
+html, body, [class*="css"] {
+    font-family: "Inter", "Segoe UI", sans-serif;
 }
 
-/* SIDEBAR */
+.stApp {
+    background: #ffffff;
+    color: #1f2937;
+}
+
+
+/* Remove Streamlit default top space */
+
+.block-container {
+    padding-top: 0.8rem;
+    padding-bottom: 0.5rem;
+}
+
+
+/* Sidebar */
 
 section[data-testid="stSidebar"] {
-    background-color: #1A2332;
-    border-right: 1px solid #2D3748;
-}
-
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: #F8FAFC;
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
 }
 
 
-/* HEADER */
+/* Sidebar title */
 
-.app-header {
-    padding: 5px 0 15px 0;
-}
-
-.app-title {
-    font-size: 25px;
+.sidebar-title {
+    font-size: 20px;
     font-weight: 700;
-    color: #F8FAFC;
+    color: #111827;
+    letter-spacing: -0.3px;
 }
 
-.app-subtitle {
-    color: #94A3B8;
-    font-size: 13px;
-    margin-top: 3px;
-}
-
-.system-status {
-    text-align: right;
-    padding-top: 10px;
-    color: #94A3B8;
+.sidebar-subtitle {
     font-size: 12px;
-}
-
-.status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background-color: #10B981;
-    border-radius: 50%;
-    margin-right: 5px;
+    color: #6b7280;
+    margin-top: -5px;
+    margin-bottom: 22px;
 }
 
 
-/* MAP HEADER */
+/* Top navigation */
 
-.map-header {
+.topbar {
+    height: 58px;
+
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
 
-    background-color: #1A2332;
-
-    border: 1px solid #2D3748;
-    border-bottom: none;
-
-    padding: 10px 14px;
-
-    border-radius: 8px 8px 0 0;
-
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.map-location {
-    color: #38BDF8;
-    font-size: 12px;
-}
-
-
-/* RIGHT INFORMATION PANEL */
-
-.gis-stat {
-    background-color: #1A2332;
-
-    border: 1px solid #2D3748;
-
-    border-radius: 7px;
-
-    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
 
     margin-bottom: 10px;
 }
 
-.stat-label {
-    color: #94A3B8;
-    font-size: 11px;
-}
-
-.stat-value {
-    color: #38BDF8;
-    font-size: 25px;
+.brand {
+    font-size: 18px;
     font-weight: 700;
-    margin-top: 3px;
+    color: #111827;
 }
 
-.stat-value.green {
-    color: #10B981;
+.brand span {
+    color: #15803d;
 }
 
-.stat-value.red {
-    color: #EF4444;
+.map-title {
+    font-size: 13px;
+    color: #6b7280;
 }
 
 
-/* LEGEND */
+/* Section */
+
+.section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+
+    margin-top: 18px;
+    margin-bottom: 8px;
+}
+
+
+/* Information panel */
+
+.info-panel {
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 8px;
+
+    padding: 16px;
+
+    margin-bottom: 10px;
+}
+
+.info-label {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 3px;
+}
+
+.info-value {
+    font-size: 23px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.info-unit {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+
+/* NDVI status */
+
+.ndvi-status {
+    display: inline-block;
+
+    background: #ecfdf5;
+
+    color: #15803d;
+
+    border: 1px solid #bbf7d0;
+
+    padding: 5px 9px;
+
+    border-radius: 5px;
+
+    font-size: 11px;
+
+    font-weight: 600;
+}
+
+
+/* Map legend */
 
 .ndvi-legend {
+
     position: fixed;
 
-    bottom: 35px;
-    left: 35px;
+    bottom: 28px;
 
-    width: 175px;
+    left: 28px;
 
-    background-color: rgba(18, 24, 36, 0.92);
+    background: rgba(255,255,255,0.96);
 
-    color: white;
+    border: 1px solid #d1d5db;
 
-    padding: 10px;
+    border-radius: 6px;
 
-    border-radius: 7px;
+    padding: 10px 12px;
 
-    border: 1px solid #2D3748;
+    width: 155px;
 
     font-size: 11px;
+
+    color: #374151;
+
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 
     z-index: 9999;
 }
 
+.legend-title {
+    font-weight: 700;
+    margin-bottom: 7px;
+}
+
+.legend-row {
+    display: flex;
+    align-items: center;
+    margin: 4px 0;
+}
+
 .legend-color {
-    display: inline-block;
-
-    width: 11px;
-    height: 11px;
-
-    margin-right: 5px;
-}
-
-.legend-color.low {
-    background-color: #d7191c;
-}
-
-.legend-color.medium {
-    background-color: #ffffbf;
-}
-
-.legend-color.high {
-    background-color: #1a9641;
-
-
-/* METRIC */
-
-div[data-testid="stMetricValue"] {
-    color: #38BDF8 !important;
+    width: 13px;
+    height: 13px;
+    margin-right: 7px;
+    border-radius: 2px;
 }
 
 
-/* REMOVE EXTRA SPACE */
+/* Hide Streamlit menu */
 
-.block-container {
-    padding-top: 1.2rem;
-    padding-bottom: 1rem;
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+header {
+    visibility: hidden;
 }
 
 </style>
@@ -206,10 +231,31 @@ div[data-testid="stMetricValue"] {
 
 
 # ============================================================
-# 3. DỮ LIỆU VỊ TRÍ
+# 3. LOCATION DATA
 # ============================================================
 
 LOCATION_DATA = {
+
+    "An Giang": {
+
+        "Toàn tỉnh": [
+            10.5361,
+            105.1325,
+            9
+        ],
+
+        "Huyện Chợ Mới": [
+            10.5000,
+            105.5500,
+            12
+        ],
+
+        "TP. Long Xuyên": [
+            10.3800,
+            105.4300,
+            12
+        ]
+    },
 
     "TP. Hồ Chí Minh": {
 
@@ -217,12 +263,6 @@ LOCATION_DATA = {
             10.7769,
             106.7009,
             10
-        ],
-
-        "Phường Long Nguyên": [
-            11.1230,
-            106.6540,
-            13
         ],
 
         "Quận 1": [
@@ -236,28 +276,6 @@ LOCATION_DATA = {
             106.7537,
             12
         ]
-    },
-
-
-    "An Giang": {
-
-        "Toàn tỉnh": [
-            10.5361,
-            105.1325,
-            10
-        ],
-
-        "Huyện Chợ Mới": [
-            10.5000,
-            105.5500,
-            12
-        ],
-
-        "TP. Long Xuyên": [
-            10.3800,
-            105.4300,
-            13
-        ]
     }
 }
 
@@ -268,21 +286,12 @@ LOCATION_DATA = {
 
 st.sidebar.markdown(
     """
-    <div style="
-        font-size:22px;
-        font-weight:700;
-        color:#F8FAFC;
-        margin-bottom:3px;
-    ">
-        🌐 GEO NDVI
+    <div class="sidebar-title">
+        🌍 GEO <span>NDVI</span>
     </div>
 
-    <div style="
-        font-size:12px;
-        color:#94A3B8;
-        margin-bottom:18px;
-    ">
-        WebGIS Monitoring Platform
+    <div class="sidebar-subtitle">
+        WebGIS Monitoring & Prediction
     </div>
     """,
     unsafe_allow_html=True
@@ -290,110 +299,108 @@ st.sidebar.markdown(
 
 
 # ------------------------------------------------------------
-# KHU VỰC DỰ BÁO
+# LOCATION
 # ------------------------------------------------------------
 
-with st.sidebar.expander(
-    "🔮 DỰ BÁO NDVI",
-    expanded=True
-):
+st.sidebar.markdown(
+    '<div class="section-title">Khu vực</div>',
+    unsafe_allow_html=True
+)
 
-    selected_province = st.selectbox(
-        "Tỉnh / Thành phố",
-        list(LOCATION_DATA.keys())
-    )
-
-
-    district_options = list(
-        LOCATION_DATA[selected_province].keys()
-    )
+selected_province = st.sidebar.selectbox(
+    "Tỉnh / Thành phố",
+    list(LOCATION_DATA.keys()),
+    label_visibility="collapsed"
+)
 
 
-    selected_district = st.selectbox(
-        "Khu vực",
-        district_options
-    )
+district_options = list(
+    LOCATION_DATA[selected_province].keys()
+)
 
 
-    selected_year = st.selectbox(
-        "Năm dự báo",
-        [2026, 2027]
-    )
-
-
-    selected_month = st.selectbox(
-        "Tháng dự báo",
-        range(1, 13),
-        format_func=lambda x: f"Tháng {x:02d}"
-    )
-
-
-    st.markdown("---")
-
-
-    btn_predict = st.button(
-        "🚀 CHẠY DỰ BÁO AI",
-        use_container_width=True,
-        type="primary"
-    )
-
-
-    btn_export = st.button(
-        "📥 XUẤT DỮ LIỆU",
-        use_container_width=True
-    )
+selected_district = st.sidebar.selectbox(
+    "Khu vực",
+    district_options,
+    label_visibility="collapsed"
+)
 
 
 # ------------------------------------------------------------
-# CẤU HÌNH BẢN ĐỒ
+# TIME
 # ------------------------------------------------------------
 
-with st.sidebar.expander(
-    "🗺️ CẤU HÌNH BẢN ĐỒ",
-    expanded=True
-):
-
-    basemap_choice = st.radio(
-        "Bản đồ nền",
-        [
-            "Esri Satellite",
-            "OpenStreetMap"
-        ]
-    )
+st.sidebar.markdown(
+    '<div class="section-title">Thời gian</div>',
+    unsafe_allow_html=True
+)
 
 
-    show_boundary = st.checkbox(
-        "Hiển thị ranh giới",
-        value=True
-    )
+selected_year = st.sidebar.selectbox(
+    "Năm",
+    [2026, 2027],
+    index=0
+)
 
 
-    show_grid = st.checkbox(
-        "Hiển thị lưới NDVI",
-        value=False
-    )
+selected_month = st.sidebar.selectbox(
+    "Tháng",
+    range(1, 13),
+    index=8,
+    format_func=lambda x: f"Tháng {x:02d}"
+)
 
 
 # ------------------------------------------------------------
-# THÔNG TIN DỮ LIỆU
+# LAYERS
 # ------------------------------------------------------------
 
-with st.sidebar.expander(
-    "📡 NGUỒN DỮ LIỆU",
-    expanded=False
-):
+st.sidebar.markdown(
+    '<div class="section-title">Lớp dữ liệu</div>',
+    unsafe_allow_html=True
+)
 
-    st.write("🛰️ Sentinel-2")
 
-    st.write("📐 Độ phân giải: 10 m")
+show_boundary = st.sidebar.checkbox(
+    "Ranh giới hành chính",
+    value=True
+)
 
-    st.write("🗓️ Chu kỳ: Theo tháng")
 
-    st.write("🧠 Mô hình: GRU")
+show_grid = st.sidebar.checkbox(
+    "Lưới 500 × 500 m",
+    value=False
+)
+
+
+show_ndvi = st.sidebar.checkbox(
+    "Lớp NDVI",
+    value=False
+)
+
+
+# ------------------------------------------------------------
+# BASEMAP
+# ------------------------------------------------------------
+
+st.sidebar.markdown(
+    '<div class="section-title">Bản đồ nền</div>',
+    unsafe_allow_html=True
+)
+
+
+basemap_choice = st.sidebar.radio(
+    "Basemap",
+    [
+        "Satellite",
+        "Street Map"
+    ],
+    label_visibility="collapsed"
+)
 
 
 # ============================================================
-# 5. LẤY TỌA ĐỘ
+# 5. LOCATION
 # ============================================================
 
 lat, lng, zoom = LOCATION_DATA[
@@ -404,102 +411,56 @@ lat, lng, zoom = LOCATION_DATA[
 
 
 # ============================================================
-# 6. HEADER
+# 6. TOP BAR
 # ============================================================
 
-header_left, header_right = st.columns(
-    [4, 1]
+st.markdown(
+    f"""
+    <div class="topbar">
+
+        <div class="brand">
+            GEO <span>NDVI</span>
+        </div>
+
+        <div class="map-title">
+            {selected_district} ·
+            {selected_province} ·
+            {selected_month:02d}/{selected_year}
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 
-with header_left:
-
-    st.markdown(
-        """
-        <div class="app-header">
-
-            <div class="app-title">
-                🌐 GEO NDVI WEBGIS
-            </div>
-
-            <div class="app-subtitle">
-                Hệ thống giám sát và dự báo chỉ số NDVI
-                bằng dữ liệu viễn thám
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-with header_right:
-
-    st.markdown(
-        """
-        <div class="system-status">
-
-            <span class="status-dot"></span>
-
-            SYSTEM ONLINE
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
 # ============================================================
-# 7. KHU VỰC WEBGIS CHÍNH
+# 7. MAIN GIS AREA
 # ============================================================
 
 map_col, info_col = st.columns(
-    [4.7, 1.3]
+    [4.8, 1.2],
+    gap="small"
 )
 
 
 # ============================================================
-# 8. BẢN ĐỒ
+# 8. MAP
 # ============================================================
 
 with map_col:
 
-    st.markdown(
-        f"""
-        <div class="map-header">
+    if basemap_choice == "Satellite":
 
-            <span>
-                🗺️ BẢN ĐỒ GIÁM SÁT NDVI
-            </span>
-
-            <span class="map-location">
-                {selected_district} · {selected_province}
-            </span>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-    # -----------------------------------------
-    # BASEMAP
-    # -----------------------------------------
-
-    if basemap_choice == "Esri Satellite":
-
-        tile_provider = "Esri WorldImagery"
+        tile = "Esri WorldImagery"
 
     else:
 
-        tile_provider = "OpenStreetMap"
+        tile = "OpenStreetMap"
 
-
-    # -----------------------------------------
-    # CREATE MAP
-    # -----------------------------------------
 
     m = folium.Map(
+
         location=[
             lat,
             lng
@@ -507,105 +468,129 @@ with map_col:
 
         zoom_start=zoom,
 
-        tiles=tile_provider,
+        tiles=tile,
 
-        control_scale=True
+        control_scale=True,
+
+        zoom_control=True
     )
 
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # FULLSCREEN
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     Fullscreen(
         position="topright",
-
         title="Toàn màn hình",
-
-        title_cancel="Thoát toàn màn hình",
-
-        force_separate_button=True
+        title_cancel="Thoát toàn màn hình"
     ).add_to(m)
 
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # LOCATION MARKER
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     folium.Marker(
 
-        [lat, lng],
+        [
+            lat,
+            lng
+        ],
 
         tooltip=selected_district,
 
         popup=f"""
         <b>{selected_district}</b><br>
-        {selected_province}<br>
-        NDVI Mean: 0.642
+        {selected_province}
         """
 
     ).add_to(m)
 
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # NDVI LEGEND
-    # -----------------------------------------
+    # --------------------------------------------------------
 
-    legend_html = """
-    <div class="ndvi-legend">
+    if show_ndvi:
 
-        <b>CHÚ GIẢI NDVI</b>
+        legend_html = """
 
-        <br><br>
+        <div class="ndvi-legend">
 
-        <span class="legend-color low"></span>
-        -1.0 → 0.0
+            <div class="legend-title">
+                NDVI
+            </div>
 
-        <br>
+            <div class="legend-row">
+                <span
+                    class="legend-color"
+                    style="background:#d73027;">
+                </span>
+                -1.0 – 0.0
+            </div>
 
-        <span class="legend-color medium"></span>
-        0.0 → 0.3
+            <div class="legend-row">
+                <span
+                    class="legend-color"
+                    style="background:#fee08b;">
+                </span>
+                0.0 – 0.3
+            </div>
 
-        <br>
+            <div class="legend-row">
+                <span
+                    class="legend-color"
+                    style="background:#66bd63;">
+                </span>
+                0.3 – 0.6
+            </div>
 
-        <span class="legend-color high"></span>
-        0.3 → 1.0
+            <div class="legend-row">
+                <span
+                    class="legend-color"
+                    style="background:#1a9850;">
+                </span>
+                0.6 – 1.0
+            </div>
 
-    </div>
-    """
+        </div>
 
+        """
 
-    m.get_root().html.add_child(
-        folium.Element(
-            legend_html
+        m.get_root().html.add_child(
+            folium.Element(
+                legend_html
+            )
         )
-    )
 
 
-    # -----------------------------------------
-    # RENDER MAP
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # MAP
+    # --------------------------------------------------------
 
-    st_folium(
+    map_data = st_folium(
 
         m,
 
         width="100%",
 
-        height=620,
+        height=650,
 
-        returned_objects=[]
+        returned_objects=[
+            "last_clicked"
+        ]
     )
 
 
 # ============================================================
-# 9. INFORMATION PANEL
+# 9. RIGHT INFORMATION PANEL
 # ============================================================
 
 with info_col:
 
     st.markdown(
-        "### 📊 THÔNG TIN"
+        "### Thông tin"
     )
 
 
@@ -614,20 +599,24 @@ with info_col:
     )
 
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # NDVI MEAN
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     st.markdown(
         """
-        <div class="gis-stat">
+        <div class="info-panel">
 
-            <div class="stat-label">
-                NDVI MEAN
+            <div class="info-label">
+                NDVI TRUNG BÌNH
             </div>
 
-            <div class="stat-value">
+            <div class="info-value">
                 0.642
+            </div>
+
+            <div class="info-unit">
+                Giá trị trung bình khu vực
             </div>
 
         </div>
@@ -636,19 +625,19 @@ with info_col:
     )
 
 
-    # -----------------------------------------
-    # NDVI MAX
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # MAX
+    # --------------------------------------------------------
 
     st.markdown(
         """
-        <div class="gis-stat">
+        <div class="info-panel">
 
-            <div class="stat-label">
-                NDVI MAX
+            <div class="info-label">
+                NDVI CAO NHẤT
             </div>
 
-            <div class="stat-value green">
+            <div class="info-value">
                 0.891
             </div>
 
@@ -658,19 +647,19 @@ with info_col:
     )
 
 
-    # -----------------------------------------
-    # NDVI MIN
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # MIN
+    # --------------------------------------------------------
 
     st.markdown(
         """
-        <div class="gis-stat">
+        <div class="info-panel">
 
-            <div class="stat-label">
-                NDVI MIN
+            <div class="info-label">
+                NDVI THẤP NHẤT
             </div>
 
-            <div class="stat-value red">
+            <div class="info-value">
                 -0.120
             </div>
 
@@ -680,92 +669,63 @@ with info_col:
     )
 
 
-    st.markdown("---")
-
-
-    # -----------------------------------------
-    # VEGETATION HEALTH
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # STATUS
+    # --------------------------------------------------------
 
     st.markdown(
-        "#### 🌱 SỨC KHỎE"
+        """
+        <div style="margin-top:14px;">
+
+            <div class="info-label">
+                TRẠNG THÁI THẢM THỰC VẬT
+            </div>
+
+            <br>
+
+            <span class="ndvi-status">
+                ● PHÁT TRIỂN TỐT
+            </span>
+
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
-    fig_gauge = go.Figure(
-        go.Indicator(
+    # --------------------------------------------------------
+    # CLICKED POINT
+    # --------------------------------------------------------
 
-            mode="gauge+number",
+    if map_data and map_data.get("last_clicked"):
 
-            value=78,
+        point = map_data["last_clicked"]
 
-            number={
-                "suffix": "%",
-                "font": {
-                    "size": 24,
-                    "color": "#10B981"
-                }
-            },
-
-            gauge={
-
-                "axis": {
-                    "range": [0, 100]
-                },
-
-                "bar": {
-                    "color": "#10B981"
-                },
-
-                "bgcolor": "#1A2332",
-
-                "bordercolor": "#2D3748"
-            }
+        st.markdown(
+            "<br><div class='section-title'>Điểm được chọn</div>",
+            unsafe_allow_html=True
         )
-    )
 
+        st.caption(
+            f"Latitude: {point['lat']:.6f}"
+        )
 
-    fig_gauge.update_layout(
-
-        height=180,
-
-        margin=dict(
-            l=5,
-            r=5,
-            t=10,
-            b=10
-        ),
-
-        paper_bgcolor="rgba(0,0,0,0)"
-    )
-
-
-    st.plotly_chart(
-        fig_gauge,
-        use_container_width=True
-    )
-
-
-    st.success(
-        "🟢 Thảm thực vật phát triển tốt"
-    )
+        st.caption(
+            f"Longitude: {point['lng']:.6f}"
+        )
 
 
 # ============================================================
 # 10. TIME SERIES
 # ============================================================
 
-st.markdown("---")
-
+st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown(
-    "### 📈 DIỄN BIẾN NDVI THEO THỜI GIAN"
+    '<div class="section-title">Diễn biến NDVI</div>',
+    unsafe_allow_html=True
 )
 
-
-# -----------------------------------------
-# DATA SAMPLE
-# -----------------------------------------
 
 dates = pd.date_range(
     start="2017-01-01",
@@ -774,22 +734,13 @@ dates = pd.date_range(
 )
 
 
-np.random.seed(42)
-
-
 actual_ndvi = (
     0.5
-    + 0.2 * np.sin(
-        np.linspace(
-            0,
-            20,
-            len(dates)
-        )
-    )
-    + np.random.normal(
-        0,
-        0.03,
-        len(dates)
+    + 0.2 *
+    pd.Series(
+        range(len(dates))
+    ).apply(
+        lambda x: __import__("math").sin(x / 8)
     )
 )
 
@@ -803,24 +754,21 @@ future_dates = pd.date_range(
 
 predicted_ndvi = (
     0.5
-    + 0.2 * np.sin(
-        np.linspace(
-            20,
-            22,
-            len(future_dates)
+    + 0.2 *
+    pd.Series(
+        range(len(future_dates))
+    ).apply(
+        lambda x: __import__("math").sin(
+            (len(dates) + x) / 8
         )
     )
 )
 
 
-# -----------------------------------------
-# CHART
-# -----------------------------------------
-
-fig_chart = go.Figure()
+fig = go.Figure()
 
 
-fig_chart.add_trace(
+fig.add_trace(
     go.Scatter(
 
         x=dates,
@@ -832,14 +780,14 @@ fig_chart.add_trace(
         name="NDVI thực tế",
 
         line=dict(
-            color="#38BDF8",
+            color="#2563eb",
             width=2
         )
     )
 )
 
 
-fig_chart.add_trace(
+fig.add_trace(
     go.Scatter(
 
         x=future_dates,
@@ -848,10 +796,10 @@ fig_chart.add_trace(
 
         mode="lines",
 
-        name="AI dự báo",
+        name="Dự báo AI",
 
         line=dict(
-            color="#F59E0B",
+            color="#16a34a",
             width=2,
             dash="dash"
         )
@@ -859,115 +807,46 @@ fig_chart.add_trace(
 )
 
 
-fig_chart.update_layout(
+fig.update_layout(
 
-    template="plotly_dark",
-
-    height=300,
-
-    paper_bgcolor="#1A2332",
-
-    plot_bgcolor="#1A2332",
+    height=270,
 
     margin=dict(
         l=20,
         r=20,
-        t=20,
+        t=10,
         b=20
+    ),
+
+    paper_bgcolor="#ffffff",
+
+    plot_bgcolor="#ffffff",
+
+    font=dict(
+        color="#374151"
     ),
 
     xaxis=dict(
         showgrid=True,
-        gridcolor="#2D3748"
+        gridcolor="#f1f5f9"
     ),
 
     yaxis=dict(
-        range=[
-            -0.2,
-            1
-        ],
-
         showgrid=True,
-
-        gridcolor="#2D3748"
+        gridcolor="#f1f5f9",
+        range=[-0.2, 1]
     ),
 
     legend=dict(
         orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="right",
-        x=1
+        y=1.08,
+        x=1,
+        xanchor="right"
     )
 )
 
 
 st.plotly_chart(
-    fig_chart,
+    fig,
     use_container_width=True
 )
-
-
-# ============================================================
-# 11. SUMMARY
-# ============================================================
-
-st.markdown(
-    "### 📋 TÓM TẮT KHU VỰC"
-)
-
-
-c1, c2, c3, c4 = st.columns(4)
-
-
-with c1:
-
-    st.metric(
-        "Vùng theo dõi",
-        selected_district
-    )
-
-
-with c2:
-
-    st.metric(
-        "NDVI hiện tại",
-        "0.642"
-    )
-
-
-with c3:
-
-    st.metric(
-        "Dự báo",
-        "0.671",
-        "+0.029"
-    )
-
-
-with c4:
-
-    st.metric(
-        "Thời gian",
-        f"{selected_month:02d}/{selected_year}"
-    )
-
-
-# ============================================================
-# 12. BUTTON ACTION
-# ============================================================
-
-if btn_predict:
-
-    st.toast(
-        "🚀 Đã kích hoạt mô phỏng dự báo AI!",
-        icon="🧠"
-    )
-
-
-if btn_export:
-
-    st.toast(
-        "📥 Chức năng xuất dữ liệu đang được chuẩn bị.",
-        icon="📊"
-    )
