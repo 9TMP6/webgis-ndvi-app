@@ -92,5 +92,14 @@ CUSTOM_CSS = """
     .legend-panel { background: #151D2A; border: 1px solid #26334D; border-radius: 6px; padding: 10px; margin-top: 10px; }
     .legend-item { display: flex; align-items: center; font-size: 0.75rem !important; margin-bottom: 4px; color: #CBD5E1; }
     .color-box { width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; display: inline-block; }
+/* 🛑 ẨN THANH HEADER TRÊN CÙNG (Chứa icon GitHub & nút Fork/Edit) */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    /* 🛑 ẨN MENU 3 CHẤM & FOOTER (Nếu muốn ẩn luôn) */
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    
     </style>
 """
