@@ -242,7 +242,7 @@ with col_map:
 
     # 📌 3. HIỂN THỊ RANH GIỚI TỪ SHAPEFILE LOCAL HCM-34 🗺️
     if show_boundaries:
-        SHP_PATH = "HCM-34/HCM-34.shp"
+        SHP_PATH = "HCM-34-Json/HCM-34.geojson"
         
         gdf_boundary = load_local_shapefile(SHP_PATH)
         
