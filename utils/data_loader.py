@@ -76,7 +76,7 @@ def load_ndvi_data_with_ai_fallback(year: int, month: int):
         query = text("""
             SELECT grid_id, date, year, month, longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
             FROM public.ndvi_records
-            WHERE year = :year AND month = :month AND year < 2025
+            WHERE year = :year AND month = :month
         """)
         df = pd.read_sql(query, engine, params={"year": int(year), "month": int(month)})
 
