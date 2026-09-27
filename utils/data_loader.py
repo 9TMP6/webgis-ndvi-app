@@ -22,20 +22,18 @@ def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"):
 @st.cache_data(ttl=300)
 def load_ndvi_data(year: int, month: int):
     """
-    Truy vấn tất cả các điểm GRID theo year và month (kiểu int2) từ CSDL Supabase
+    Truy vấn tất cả các điểm GRID theo year và month từ CSDL Supabase
     """
     engine = get_db_engine()
     try:
-        # Query trực tiếp vào cột year và month chuẩn int2
         query = text("""
-            SELECT longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
+            SELECT grid_id, date, year, month, longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
             FROM public.ndvi_records
             WHERE year = :year AND month = :month
         """)
         
         df = pd.read_sql(query, engine, params={"year": int(year), "month": int(month)})
 
-        # Lọc bỏ dòng khuyết dữ liệu (nếu có)
         if not df.empty:
             df = df.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
 
