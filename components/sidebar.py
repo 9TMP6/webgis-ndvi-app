@@ -36,7 +36,9 @@ def render_sidebar(df: pd.DataFrame = None):
 
     has_data = df is not None and not df.empty
 
-    st.markdown("""
+    with st.sidebar:
+
+        st.markdown("""
             <div style='text-align: center; padding: 10px 0 15px 0; border-bottom: 1px solid #26334D; margin-bottom: 15px;'>
                 <h3 style='color: #38BDF8; font-size: 1.1rem; font-weight: 700; margin: 0;'>🌐 GEO-NDVI</h3>
                 <p style='color: #94A3B8; font-size: 0.75rem; margin: 4px 0 0 0;'>AI & Remote Sensing Platform</p>
@@ -44,8 +46,7 @@ def render_sidebar(df: pd.DataFrame = None):
         """, unsafe_allow_html=True)
 
         st.markdown("### 🎛️ Bảng Điều Khiển")
-
-    with st.sidebar:
+        
         with st.expander("🔮 BỘ LỌC DỰ BÁO", expanded=True):
             selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
             district_options = list(LOCATION_DATA[selected_province].keys())
