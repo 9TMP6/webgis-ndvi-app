@@ -53,7 +53,7 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         
         for i, row in df_grids.iterrows():
             val = float(preds[i][0]) if len(preds[i].shape) > 0 else float(preds[i])
-            val = max(min(val, 1.0), -0.1)
+            val = max(min(val, 0.85), -0.1)
             
             predicted_rows.append({
                 "grid_id": row["grid_id"],
