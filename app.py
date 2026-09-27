@@ -4,7 +4,7 @@ from components.sidebar import render_sidebar
 from components.map_view import render_map
 from components.metrics_view import render_metrics
 from components.chart_view import render_chart_and_summary
-from data_loader import load_ndvi_data
+from utils.data_loader import load_ndvi_data
 
 # 1. Cấu hình Trang
 st.set_page_config(layout="wide", page_title="GEO-NDVI INTELLIGENCE PLATFORM", page_icon="🌐", initial_sidebar_state="expanded")
