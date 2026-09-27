@@ -1,4 +1,3 @@
-# utils/ai_engine.py
 import os
 import onnxruntime as ort
 import numpy as np
@@ -19,8 +18,8 @@ def generate_ndvi_predictions():
 def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
     """
     1. Lấy dữ liệu 12 tháng lịch sử của toàn bộ grid và gom thành mảng Batch.
-    2. Kiểm tra tính đầy đủ của dữ liệu.
-    3. Chạy suy luận ONNX theo dạng Batch (1 lần duy nhất cho tất cả các grid) để tăng tốc tối đa.
+    2. Đảm bảo khớp chuẩn trật tự grid và thời gian.
+    3. Chạy suy luận ONNX theo dạng Batch chuẩn xác 100%.
     """
     from utils.data_loader import get_db_engine
 
@@ -35,11 +34,12 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         
         engine = get_db_engine()
         
-        # 1. Lấy danh sách các grid cơ sở
+        # 1. Lấy danh sách các grid cơ sở và sắp xếp theo grid_id để đảm bảo đồng nhất thứ tự
         base_grid_query = """
             SELECT DISTINCT grid_id, longitude, latitude 
             FROM public.ndvi_records 
             WHERE year = 2020 AND month = 11
+            ORDER BY grid_id
         """
         df_grids = pd.read_sql(base_grid_query, engine)
         
@@ -51,7 +51,7 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         start_history_date = target_date - pd.DateOffset(months=12)
         start_year, start_month = start_history_date.year, start_history_date.month
 
-        # Truy vấn lịch sử 12 tháng một lần duy nhất
+        # Truy vấn lịch sử 12 tháng
         history_query = f"""
             SELECT grid_id, year, month, ndvi_mean 
             FROM public.ndvi_records 
@@ -65,57 +65,59 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
             st.warning("⚠️ Không tìm thấy dữ liệu lịch sử để dự báo!")
             return pd.DataFrame()
 
-        # Kiểm tra nhanh số tháng có sẵn của grid đầu tiên
-        first_grid_id = df_grids.iloc[0]['grid_id']
-        sample_grid_count = df_history[df_history['grid_id'] == first_grid_id].shape[0]
-
-        if sample_grid_count < 10:
-            st.warning(f"⚠️ Không đủ dữ liệu lịch sử (chỉ tìm thấy {sample_grid_count}/12 tháng). Khoảng thời gian quá xa để dự báo!")
-            return pd.DataFrame()
-
-        # 3. Gom dữ liệu theo dạng Pivot / Matrix để chạy Batch Inference cực nhanh
-        # Chỉ giữ lại các grid có đủ đúng 12 tháng lịch sử
+        # 3. Lọc chính xác các grid có ĐỦ đúng 12 tháng lịch sử
         counts = df_history.groupby('grid_id').size()
         valid_grids = counts[counts >= 12].index
         
+        if len(valid_grids) == 0:
+            st.warning("⚠️ Không có grid nào đủ 12 tháng lịch sử liên tục để chạy mô hình AI.")
+            return pd.DataFrame()
+
+        # Chỉ giữ lại lịch sử của các valid_grids và sắp xếp chuẩn trật tự
         df_valid = df_history[df_history['grid_id'].isin(valid_grids)].sort_values(['grid_id', 'year', 'month'])
         
-        if df_valid.empty:
-            return generate_fallback_grid_data(year, month)
+        # Lọc danh sách grid khớp hoàn toàn với thứ tự của df_valid
+        df_grids_filtered = df_grids[df_grids['grid_id'].isin(valid_grids)].sort_values('grid_id').reset_index(drop=True)
 
-        # Lọc lại danh sách grid khớp với dữ liệu hợp lệ
-        df_grids_filtered = df_grids[df_grids['grid_id'].isin(valid_grids)].reset_index(drop=True)
-        
-        # Chuyển đổi thành mảng 3D [Batch_Size, 12, 1] một cách nhanh chóng bằng numpy
+        # Đảm bảo shape đầu vào đúng chuẩn ma trận Batch [N, 12, 1]
         values_matrix = df_valid['ndvi_mean'].values.reshape(-1, 12, 1).astype(np.float32)
 
-        # 🚀 Chạy ONNX theo lô (Batch Inference) - Chỉ 1 dòng lệnh duy nhất cho toàn bộ hàng nghìn grid!
+        # 🚀 Chạy ONNX Batch Inference
         outputs = ort_session.run(None, {input_name: values_matrix})
         preds = outputs[0]  # Shape: [Batch_Size, 1] hoặc [Batch_Size]
 
-        # 4. Xử lý kết quả trả về
+        # 4. Xử lý kết quả trả về an toàn tuyệt đối
         target_date_str = target_date.strftime("%Y-%m-%d")
         predicted_rows = []
 
         for i, row in df_grids_filtered.iterrows():
-            pred_val = float(preds[i][0]) if len(preds[i].shape) > 1 and len(preds[i][0].shape) > 0 else float(preds[i])
+            # Trích xuất giá trị an toàn từ mảng dự đoán bất kể shape thế nào
+            raw_p = preds[i]
+            pred_val = float(raw_p.item() if hasattr(raw_p, "item") else (raw_p[0] if len(raw_p) > 0 else raw_p))
             
-            # Chặn ngưỡng an toàn
-            val = max(min(pred_val, 0.85), -0.1)
+            # Chặn ngưỡng an toàn NDVI thực tế (tránh bị lệch màu hoặc tràn số)
+            val = max(min(pred_val, 0.85), 0.0)
             
             predicted_rows.append({
                 "grid_id": row["grid_id"],
                 "date": target_date_str,
                 "year": year,
                 "month": month,
-                "longitude": row["longitude"],
-                "latitude": row["latitude"],
+                "longitude": float(row["longitude"]),
+                "latitude": float(row["latitude"]),
                 "ndvi_mean": val,
-                "ndvi_min": val - 0.05,
-                "ndvi_max": val + 0.05
+                "ndvi_min": max(val - 0.05, 0.0),
+                "ndvi_max": min(val + 0.05, 1.0)
             })
 
-        return pd.DataFrame(predicted_rows)
+        df_result = pd.DataFrame(predicted_rows)
+        
+        # 🛡️ Vệ sinh dữ liệu đầu ra: Ép kiểu số và loại bỏ NaN để chống lỗi lệch góc bản đồ
+        df_result['longitude'] = pd.to_numeric(df_result['longitude'], errors='coerce')
+        df_result['latitude'] = pd.to_numeric(df_result['latitude'], errors='coerce')
+        df_result = df_result.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
+
+        return df_result
 
     except Exception as e:
         print(f"⚠️ Lỗi chạy mô hình ONNX: {e}")
@@ -130,12 +132,19 @@ def generate_fallback_grid_data(year, month):
         df_grids = pd.read_sql("SELECT DISTINCT grid_id, longitude, latitude FROM public.ndvi_records LIMIT 1000", engine)
         if df_grids.empty:
             return pd.DataFrame()
+            
         df_grids['date'] = f"{year}-{month:02d}-01"
         df_grids['year'] = year
         df_grids['month'] = month
         df_grids['ndvi_mean'] = np.random.uniform(0.3, 0.7, len(df_grids))
         df_grids['ndvi_min'] = df_grids['ndvi_mean'] - 0.1
         df_grids['ndvi_max'] = df_grids['ndvi_mean'] + 0.1
+        
+        # 🛡️ Ép kiểu và làm sạch tọa độ chống lỗi lệch góc
+        df_grids['longitude'] = pd.to_numeric(df_grids['longitude'], errors='coerce')
+        df_grids['latitude'] = pd.to_numeric(df_grids['latitude'], errors='coerce')
+        df_grids = df_grids.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
+        
         return df_grids
     except:
         return pd.DataFrame()
