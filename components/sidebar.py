@@ -46,4 +46,5 @@ def render_sidebar():
             if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
                 st.info("Chức năng kết xuất PDF đang được xử lý.")
 
-    return selected_province, selected_district, selected_time, basemap_choice, show_boundaries
+    # 🟢 CẬP NHẬT: Thêm btn_predict vào danh sách trả về ở cuối hàm
+    return selected_province, selected_district, selected_time, basemap_choice, show_boundaries, btn_predict
