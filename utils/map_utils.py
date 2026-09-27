@@ -81,6 +81,32 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
     alpha_channel = np.ones_like(grid_ndvi_smooth)
     alpha_channel[grid_ndvi_smooth < 0.1] = 0.0
+
+
+    try:
+        from utils.data_loader import load_local_shapefile
+        gdf_shape = load_local_shapefile()
+        if gdf_shape is not None and not gdf_shape.empty:
+            # Chuyển về hệ tọa độ chuẩn WGS84 nếu cần
+            if gdf_shape.crs and str(gdf_shape.crs).upper() != "EPSG:4326":
+                gdf_shape = gdf_shape.to_crs(epsg=4326)
+            
+            geom_union = gdf_shape.unary_union
+
+            # Kiểm tra pixel nằm trong ranh giới Polygon
+            try:
+                from shapely import contains_xy
+                inside_mask = contains_xy(geom_union, grid_lon_mesh.ravel(), grid_lat_mesh.ravel()).reshape(grid_lon_mesh.shape)
+            except ImportError:
+                from shapely.vectorized import contains
+                inside_mask = contains(geom_union, grid_lon_mesh, grid_lat_mesh)
+
+            # Làm trong suốt hoàn toàn các ô ngoài ranh giới
+            alpha_channel[~inside_mask] = 0.0
+    except Exception as e:
+        print(f"⚠️ Không thể cắt theo GeoJSON: {e}")
+
+    
     rgba_img[..., 3] = alpha_channel
 
     # Đảo trục Y cho đúng tọa độ GIS
