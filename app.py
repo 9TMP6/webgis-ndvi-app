@@ -12,9 +12,17 @@ from utils.data_loader import load_ndvi_data_with_ai_fallback
 st.set_page_config(layout="wide", page_title="GEO-NDVI INTELLIGENCE PLATFORM", page_icon="🌐", initial_sidebar_state="expanded")
 st.markdown("""
     <style>
-        /* Thu hẹp chiều rộng của thanh sidebar */
-        [data-testid="stSidebar"] {
-            max-width: 260px !important;
+        /* Chỉ thu hẹp chiều rộng khi sidebar đang mở (expanded) */
+        [data-testid="stSidebar"][aria-expanded="true"] {
+            width: 250px !important;
+            min-width: 250px !important;
+            max-width: 250px !important;
+        }
+        
+        /* Đảm bảo khi bấm thu gọn (collapsed) thì nó ẩn hoàn toàn để màn hình chính tự chiếm full */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            width: 0px !important;
+            min-width: 0px !important;
         }
     </style>
 """, unsafe_allow_html=True)
