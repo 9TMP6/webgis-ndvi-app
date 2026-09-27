@@ -22,42 +22,27 @@ def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"):
 @st.cache_data(ttl=300)
 def load_ndvi_data(year: int, month: int):
     """
-    Truy vấn TẤT CẢ các điểm GRID theo đúng Tháng & Năm được chọn từ Supabase
-    Cấu trúc bảng: grid_id, date, day, month, year, longitude, latitude, ndvi_mean...
+    Truy vấn tất cả các điểm GRID theo year và month (kiểu int2) từ CSDL Supabase
     """
     engine = get_db_engine()
     try:
-        # Truy vấn trực tiếp theo cột year và month trong CSDL của bạn
+        # Query trực tiếp vào cột year và month chuẩn int2
         query = text("""
             SELECT longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
             FROM public.ndvi_records
             WHERE year = :year AND month = :month
         """)
         
-        df = pd.read_sql(query, engine, params={"year": year, "month": month})
+        df = pd.read_sql(query, engine, params={"year": int(year), "month": int(month)})
 
-        # Nếu không tìm thấy theo month/year dạng số, thử fallback theo chuỗi date ('YYYY-MM')
-        if df.empty:
-            date_str = f"{year}-{month:02d}"
-            query_fallback = text("""
-                SELECT longitude, latitude, ndvi_mean, ndvi_min, ndvi_max 
-                FROM public.ndvi_records
-                WHERE date LIKE :date_str
-            """)
-            df = pd.read_sql(query_fallback, engine, params={"date_str": f"{date_str}%"})
-
-        # Gom nhóm tọa độ trùng lặp để nội suy chính xác
+        # Lọc bỏ dòng khuyết dữ liệu (nếu có)
         if not df.empty:
-            df = df.groupby(['longitude', 'latitude'], as_index=False).agg({
-                'ndvi_mean': 'mean',
-                'ndvi_min': 'min',
-                'ndvi_max': 'max'
-            })
+            df = df.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
 
         return df
 
     except Exception as e:
-        st.error(f"❌ Lỗi khi tải dữ liệu NDVI từ Supabase: {e}")
+        st.error(f"❌ Lỗi truy vấn CSDL Supabase: {e}")
         return pd.DataFrame()
         
 @st.cache_data(ttl=3600)
