@@ -31,4 +31,4 @@ with col_metrics:
     render_metrics()
 
 # 6. Biểu đồ AI & Thống kê
-render_chart_and_summary(selected_district, selected_province, selected_time)
+# render_chart_and_summary(selected_district, selected_province, selected_time)
