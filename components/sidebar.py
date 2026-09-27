@@ -39,7 +39,7 @@ def render_sidebar(df: pd.DataFrame = None):
     with st.sidebar:
 
         st.markdown("""
-            <div style='text-align: center; padding: 10px 0 15px 0; border-bottom: 1px solid #26334D; margin-bottom: 15px;'>
+            <div style='text-align: center; padding: 0 0 15px 0; border-bottom: 1px solid #26334D; margin-bottom: 15px;'>
                 <h3 style='color: #38BDF8; font-size: 1.1rem; font-weight: 700; margin: 0;'>🌐 GEO-NDVI</h3>
                 <p style='color: #94A3B8; font-size: 0.75rem; margin: 4px 0 0 0;'>AI & Remote Sensing Platform</p>
             </div>
