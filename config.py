@@ -53,7 +53,7 @@ LOCATION_DATA = {
         "Huyện Nhà Bè - Xã Hiệp Phước": [10.6200, 106.7300, 12],
         "Huyện Cần Giờ - Thị trấn Cần Thạnh": [10.4080, 106.9530, 12],
         "Huyện Cần Giờ - Xã Long Hòa (Rừng Sác)": [10.4500, 106.8800, 11]
-    },
+    }
     
     # "An Giang": {
     #     "Toàn tỉnh/TP": [10.5361, 105.1325, 10],
