@@ -1,4 +1,5 @@
 import folium
+import streamlit as st
 from streamlit_folium import st_folium
 from folium.raster_layers import ImageOverlay
 from utils.data_loader import load_local_shapefile
@@ -26,19 +27,21 @@ def render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=None, selecte
     else:
         folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap").add_to(m)
 
-    # 3. 🟢 MỚI: Thêm Lớp phủ NDVI (ImageOverlay) nếu có dữ liệu
+    # 3. 🟢 THÊM LỚP PHỦ NDVI (IMAGEOVERLAY) KHI BẤM DỰ ĐOÁN
     if df is not None and not df.empty:
         try:
-            img_buffer, bounds = generate_ndvi_raster(df)
-            ImageOverlay(
-                image=img_buffer,
-                bounds=bounds,
-                opacity=0.65,
-                name=f"Lớp phủ NDVI ({selected_time})",
-                interactive=True
-            ).add_to(m)
+            img_base64, bounds = generate_ndvi_raster(df)
+            if img_base64 and bounds:
+                date_str = selected_time.strftime("%m/%Y") if hasattr(selected_time, 'strftime') else str(selected_time)
+                ImageOverlay(
+                    image=img_base64, # Truyền Base64 string chuẩn
+                    bounds=bounds,
+                    opacity=0.75, # Độ rực rỡ của lớp màu
+                    name=f"Lớp phủ NDVI ({date_str})",
+                    interactive=True
+                ).add_to(m)
         except Exception as e:
-            print(f"⚠️ Lỗi khi vẽ lớp NDVI Raster: {e}")
+            st.error(f"⚠️ Lỗi khi vẽ lớp NDVI Raster lên bản đồ: {e}")
 
     # 4. Thêm Ranh giới hành chính từ Shapefile
     if show_boundaries:
