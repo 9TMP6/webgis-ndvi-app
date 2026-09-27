@@ -31,7 +31,7 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
 
     # Nếu không đủ dữ liệu thực tế trong DataFrame, tạo dữ liệu mẫu mô phỏng 12 tháng
     if len(historical_dates) == 0:
-        historical_dates = pd.date_range(end=end_date, periods=12, freq='ME')
+        historical_dates = pd.date_range(end=end_date, periods=12, freq='MS')
         # Giả lập giá trị NDVI dao động nhẹ quanh mức 0.5 - 0.7 cho sinh động
         import numpy as np
         historical_ndvi = pd.Series(0.5 + 0.1 * np.sin(np.linspace(0, 3*np.pi, 12)))
