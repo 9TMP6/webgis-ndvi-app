@@ -16,32 +16,48 @@ st.set_page_config(
 )
 
 # Custom CSS thu nhỏ font size tổng thể và tối ưu khoảng trắng
+# Custom CSS: Chỉ ẩn nút Fork/GitHub góc phải, GIỮ LẠI nút đóng/mở Sidebar
 st.markdown("""
     <style>
-    /* Ẩn Header mặc định của Streamlit (chứa nút Fork, GitHub, Main Menu) */
-header[data-testid="stHeader"] {
-    display: none !important;
-}
-
-/* Ẩn Footer "Made with Streamlit" dưới cùng */
-footer {
-    display: none !important;
-}
-
-/* Ẩn bớt khoảng trống phía trên do header cũ để lại */
-.main .block-container {
-    padding-top: 1rem !important;
-}
+    /* Ẩn cụm nút Fork, GitHub, Menu mặc định góc trên bên phải */
+    div[data-testid="stToolbar"] {
+        visibility: hidden !important;
+        height: 0px !important;
+    }
     
+    /* Giữ nguyên và định vị nút thu/mở Sidebar ở góc trên bên trái */
+    button[data-testid="stSidebarCollapseButton"] {
+        visibility: visible !important;
+        z-index: 999999 !important;
+    }
+    
+    /* Ẩn Header Bar nền trong suốt mặc định của Streamlit nhưng không làm mất nút sidebar */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+    }
+    
+    /* Ẩn Footer "Made with Streamlit" */
+    footer {
+        display: none !important;
+    }
+
     /* Reset & Dark Background */
     html, body, [class*="css"] {
-        font-size: 13px !important; /* Thu nhỏ font size toàn bộ app */
+        font-size: 13px !important;
     }
     .stApp {
         background-color: #0B0F17;
         color: #E2E8F0;
     }
     
+    /* Thu gọn padding chính của Streamlit */
+    .block-container {
+        padding-top: 2rem !important; /* Dành khoảng trống nhỏ cho nút thu/mở sidebar */
+        padding-bottom: 0.8rem !important;
+        padding-left: 1rem !important;
+        padding-right: 0.3rem !important;
+    }
+
     /* Top Header Bar */
     .top-header {
         background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%);
@@ -70,14 +86,6 @@ footer {
         font-weight: 600;
     }
 
-    /* Thu gọn padding chính của Streamlit */
-    .block-container {
-        padding-top: 0.8rem !important;
-        padding-bottom: 0.8rem !important;
-        padding-left: 1rem !important;
-        padding-right: 0.3rem !important; /* Sát mép phải */
-    }
-
     /* Sidebar Styling & Expander compact */
     section[data-testid="stSidebar"] {
         background-color: #0F172A;
@@ -85,9 +93,6 @@ footer {
     }
     div[data-testid="stSidebarUserContent"] {
         padding-top: 0.5rem !important;
-    }
-    .stMultiSelect, .stSelectbox, .stDateInput {
-        font-size: 0.8rem !important;
     }
 
     /* Metric Cards Cột Phải */
@@ -134,16 +139,6 @@ footer {
         display: inline-block;
     }
     </style>
-""", unsafe_allow_html=True)
-
-# =============================================================================
-# 2. TOP HEADER BAR
-# =============================================================================
-st.markdown("""
-    <div class="top-header">
-        <div class="brand-title">🌐 GEO-NDVI INTELLIGENCE PLATFORM</div>
-        <div class="status-badge">🟢 AI ENGINE ONLINE</div>
-    </div>
 """, unsafe_allow_html=True)
 
 # =============================================================================
