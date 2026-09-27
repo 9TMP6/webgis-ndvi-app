@@ -9,15 +9,12 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
 
     # 1. Trích xuất chuỗi thời gian thực tế từ DataFrame
     if df is not None and not df.empty and 'date' in df.columns and 'ndvi_mean' in df.columns:
-        # Gom nhóm theo ngày/tháng để vẽ đường diễn biến lịch sử
         df_grouped = df.groupby('date')['ndvi_mean'].mean().reset_index().sort_values('date')
         dates = df_grouped['date']
         actual_ndvi = df_grouped['ndvi_mean']
-        
-        # Tải phần mốc thời gian & đường dự báo tương lai từ AI engine
         _, _, future_dates, predicted_ndvi = generate_ndvi_predictions()
     else:
-        # Dùng hàm giả lập nếu chưa có dữ liệu từ Supabase
+        # Dùng hàm giả lập AI engine
         dates, actual_ndvi, future_dates, predicted_ndvi = generate_ndvi_predictions()
 
     # 2. Vẽ biểu đồ đường
@@ -34,8 +31,13 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
     )
     st.plotly_chart(fig_chart, use_container_width=True)
 
-    # 3. Đánh giá sức khỏe thực vật dựa trên giá trị NDVI trung bình gần nhất
-    latest_ndvi = actual_ndvi.iloc[-1] if len(actual_ndvi) > 0 else 0.5
+    # 3. 🟢 FIX LỖI AttributeError: Tương thích cho cả Pandas Series và Numpy Array
+    if len(actual_ndvi) > 0:
+        latest_val = actual_ndvi.iloc[-1] if hasattr(actual_ndvi, 'iloc') else actual_ndvi[-1]
+        latest_ndvi = float(latest_val)
+    else:
+        latest_ndvi = 0.5
+
     if latest_ndvi >= 0.5:
         health_status = "Sức khỏe TỐT 🟢"
     elif latest_ndvi >= 0.2:
