@@ -120,7 +120,7 @@ st.markdown("""
 # 2. HÀM CACHE LOAD SHAPEFILE LOCAL TỪ THƯ MỤC HCM-34 📂
 # =============================================================================
 @st.cache_data
-def load_local_shapefile(shp_path="HCM-34/HCM-34.shp"):
+def load_local_shapefile(shp_path="TPHCM-34/HCM-34.shp"):
     """
     Đọc file Shapefile ranh giới trong folder HCM-34 và tự động chuyển về WGS84 (EPSG:4326)
     """
