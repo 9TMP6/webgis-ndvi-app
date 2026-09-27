@@ -1,5 +1,8 @@
 import streamlit as st
 import geopandas as gpd
+import pandas as pd
+from sqlalchemy import create_engine, text
+from config import DATABASE_URL
 
 @st.cache_data
 def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"): 
