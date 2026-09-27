@@ -4,6 +4,7 @@ from components.sidebar import render_sidebar
 from components.map_view import render_map
 from components.metrics_view import render_metrics
 from components.chart_view import render_chart_and_summary
+from data_loader import load_ndvi_data
 
 # 1. Cấu hình Trang
 st.set_page_config(layout="wide", page_title="GEO-NDVI INTELLIGENCE PLATFORM", page_icon="🌐", initial_sidebar_state="expanded")
@@ -20,6 +21,8 @@ st.markdown("""
 # 3. Sidebar
 selected_province, selected_district, selected_time, basemap_choice, show_boundaries = render_sidebar()
 
+ndvi_df = load_ndvi_data(selected_district)
+
 # 4. Tọa độ chính
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
 
@@ -31,4 +34,4 @@ with col_metrics:
     render_metrics()
 
 # 6. Biểu đồ AI & Thống kê
-# render_chart_and_summary(selected_district, selected_province, selected_time)
+render_chart_and_summary(selected_district, selected_province, selected_time, df=ndvi_df)
