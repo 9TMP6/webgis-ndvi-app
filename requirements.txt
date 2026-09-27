@@ -2,5 +2,7 @@ streamlit
 streamlit-folium
 folium
 pandas
+numpy
 plotly
-supabase
+requests
+geopandas
