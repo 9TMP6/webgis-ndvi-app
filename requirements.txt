@@ -8,3 +8,6 @@ requests
 geopandas
 sqlalchemy
 psycopg2-binary
+scipy
+matplotlib
+Pillow
