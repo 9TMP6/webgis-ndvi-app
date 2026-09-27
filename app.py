@@ -120,7 +120,7 @@ st.markdown("""
 # 2. HÀM CACHE LOAD SHAPEFILE LOCAL TỪ THƯ MỤC HCM-34 📂
 # =============================================================================
 @st.cache_data
-def load_local_shapefile(shp_path="TPHCM-34/HCM-34.shp"): 
+def load_local_shapefile(shp_path="HCM-34-Json/HCM-34.geojson"): 
     try:
         gdf = gpd.read_file(shp_path)
         if gdf.crs is not None and gdf.crs != "EPSG:4326":
