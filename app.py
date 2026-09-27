@@ -21,9 +21,28 @@ st.markdown("""
 # 3. Sidebar
 selected_province, selected_district, selected_time, basemap_choice, show_boundaries = render_sidebar()
 
-year = selected_time.year
-month = selected_time.month
-ndvi_df = load_ndvi_data(year=year, month=month)
+# Khởi tạo session state
+if "ndvi_df" not in st.session_state:
+    st.session_state["ndvi_df"] = pd.DataFrame()
+
+# 🟢 XỬ LÝ KHI BẤM NÚT DỰ ĐOÁN & HIỂN THỊ THÔNG BÁO ALERT
+if btn_predict:
+    year = selected_time.year
+    month = selected_time.month
+    
+    with st.spinner(f"🌐 Đang truy vấn CSDL cho tháng {month}/{year}..."):
+        df_result = load_ndvi_data(year=year, month=month)
+        st.session_state["ndvi_df"] = df_result
+
+        # 🔔 THÔNG BÁO ALERT TRẠNG THÁI
+        if df_result.empty:
+            st.toast(f"⚠️ Không tìm thấy dữ liệu cho tháng {month}/{year}", icon="❌")
+            st.warning(f"⚠️ **Không có dữ liệu:** Tháng **{month}/{year}** chưa có bản ghi NDVI trong CSDL Supabase. Bạn hãy chọn mốc **Tháng 11/2020** để xem thử nhé!")
+        else:
+            st.toast(f"✅ Tải thành công {len(df_result):,} điểm NDVI!", icon="🛰️")
+            st.success(f"🎉 **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô tọa độ NDVI cho Tháng **{month}/{year}**!")
+
+ndvi_df = st.session_state["ndvi_df"]
 
 # 4. Tọa độ chính
 lat, lng, zoom = LOCATION_DATA[selected_province][selected_district]
