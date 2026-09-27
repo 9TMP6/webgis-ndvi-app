@@ -18,6 +18,21 @@ st.set_page_config(
 # Custom CSS thu nhỏ font size tổng thể và tối ưu khoảng trắng
 st.markdown("""
     <style>
+    /* Ẩn Header mặc định của Streamlit (chứa nút Fork, GitHub, Main Menu) */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* Ẩn Footer "Made with Streamlit" dưới cùng */
+footer {
+    display: none !important;
+}
+
+/* Ẩn bớt khoảng trống phía trên do header cũ để lại */
+.main .block-container {
+    padding-top: 1rem !important;
+}
+    
     /* Reset & Dark Background */
     html, body, [class*="css"] {
         font-size: 13px !important; /* Thu nhỏ font size toàn bộ app */
