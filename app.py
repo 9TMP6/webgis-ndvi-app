@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import requests
+import geopandas as gpd  # 👈 1. THÊM GEOPANDAS ĐỂ ĐỌC SHAPEFILE 📦
 
 # =============================================================================
 # 1. CẤU HÌNH TRANG & CUSTOM CSS
@@ -116,17 +117,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# 2. HÀM CACHE LOAD DỮ LIỆU GEOJSON RANH GIỚI TỈNH (TRÁNH TẢI LẠI NHIỀU LẦN)
+# 2. HÀM CACHE LOAD SHAPEFILE LOCAL TỪ THƯ MỤC HCM-34 📂
 # =============================================================================
 @st.cache_data
-def get_vietnam_provinces_geojson():
-    # URL GeoJSON ranh giới các tỉnh Việt Nam
-    url = "https://raw.githubusercontent.com/hangha2001/GeoJSON_Vietnam/main/vietnam_provinces.geojson"
+def load_local_shapefile(shp_path="HCM-34/HCM-34.shp"):
+    """
+    Đọc file Shapefile ranh giới trong folder HCM-34 và tự động chuyển về WGS84 (EPSG:4326)
+    """
     try:
-        response = requests.get(url, timeout=10)
-        return response.json()
+        gdf = gpd.read_file(shp_path)
+        
+        # Tự động chuyển hệ tọa độ về WGS84 cho Folium nếu chưa phải EPSG:4326
+        if gdf.crs is not None and gdf.crs != "EPSG:4326":
+            gdf = gdf.to_crs(epsg=4326)
+            
+        return gdf
     except Exception as e:
-        st.error(f"Không thể tải dữ liệu ranh giới: {e}")
+        st.error(f"❌ Không thể tải dữ liệu ranh giới từ '{shp_path}': {e}")
         return None
 
 # =============================================================================
@@ -183,8 +190,8 @@ with st.sidebar:
             ["Esri Satellite", "Google Hybrid"]
         )
         
-        # 📌 Nút Checkbox Bật / Tắt Ranh giới tỉnh
-        show_boundaries = st.checkbox("🗺️ Hiển thị ranh giới tỉnh", value=True)
+        # 📌 Nút Checkbox Bật / Tắt Ranh giới local
+        show_boundaries = st.checkbox("🗺️ Hiển thị ranh giới (HCM-34)", value=True)
 
     # Menu 3: Xuất dữ liệu & báo cáo
     with st.expander("📊 XUẤT DỮ LIỆU & BÁO CÁO", expanded=False):
@@ -239,24 +246,31 @@ with col_map:
     else:
         folium.TileLayer(tiles="OpenStreetMap", name="OpenStreetMap").add_to(m)
 
-    # 📌 XỬ LÝ ẨN / HIỆN RANH GIỚI TỈNH KHI ĐƯỢC TÍCH CHỌN
+    # 📌 3. HIỂN THỊ RANH GIỚI TỪ SHAPEFILE LOCAL HCM-34 🗺️
     if show_boundaries:
-        geojson_data = get_vietnam_provinces_geojson()
-        if geojson_data:
+        # Đường dẫn tới file .shp chính trong folder HCM-34
+        SHP_PATH = "HCM-34/HCM-34.shp"
+        
+        gdf_boundary = load_local_shapefile(SHP_PATH)
+        
+        if gdf_boundary is not None:
+            # Tự động chọn tên cột hiển thị khi rê chuột vào
+            cols = [c for c in ['NAME_1', 'NAME_2', 'TEN_TINH', 'TEN_HUYEN', 'name'] if c in gdf_boundary.columns]
+            tooltip_field = cols[:1] if cols else [gdf_boundary.columns[0]]
+
             folium.GeoJson(
-                geojson_data,
-                name="Ranh giới Tỉnh/Thành",
+                gdf_boundary,
+                name="Ranh giới HCM-34",
                 style_function=lambda feature: {
-                    'fillColor': 'transparent', # Trong suốt nền
-                    'color': '#38BDF8',        # Màu đường ranh giới (Xanh Cyan)
-                    'weight': 1.8,             # Độ dày đường
-                    'dashArray': '4, 4',       # Đường nét đứt
+                    'fillColor': 'transparent', # Nền trong suốt
+                    'color': '#38BDF8',        # Màu viền xanh Cyan
+                    'weight': 2.0,             # Độ dày nét
+                    'dashArray': '4, 4',       # Nét đứt
                     'fillOpacity': 0,
                 },
                 tooltip=folium.GeoJsonTooltip(
-                    fields=['name'],           # Hiển thị tên tỉnh khi rê chuột vào
-                    aliases=['Tỉnh/TP:'],
-                    localize=True
+                    fields=tooltip_field,
+                    aliases=['Thông tin:']
                 )
             ).add_to(m)
 
