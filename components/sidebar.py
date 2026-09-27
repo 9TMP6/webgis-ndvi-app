@@ -106,7 +106,7 @@ def render_sidebar(df: pd.DataFrame = None):
             if btn_png and not has_data:
                 st.toast("ℹ️ Bạn vừa tải ảnh mẫu mặc định. Hãy bấm '🚀 CHẠY DỰ BÁO AI' để tạo bản đồ NDVI nhé!", icon="🖼️")
 
-            if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
-                st.info("Chức năng kết xuất PDF đang được xử lý.")
+            # if st.button("📄 Tạo báo cáo PDF", use_container_width=True):
+            #     st.info("Chức năng kết xuất PDF đang được xử lý.")
 
     return selected_province, selected_district, selected_time, basemap_choice, show_boundaries, btn_predict
