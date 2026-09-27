@@ -3,6 +3,7 @@ import os
 import onnxruntime as ort
 import numpy as np
 import pandas as pd
+import streamlit as st
 
 def generate_ndvi_predictions():
     """Giả lập hoặc chạy mô hình AI (LSTM/GRU) dự báo NDVI cho biểu đồ chuỗi thời gian"""
@@ -17,11 +18,10 @@ def generate_ndvi_predictions():
 
 def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
     """
-    1. Lấy dữ liệu chuỗi thời gian lịch sử của các điểm grid từ CSDL để làm đầu vào (timesteps = 12).
-    2. Chạy mô hình .onnx để dự báo NDVI cho tháng/năm chưa có trong CSDL.
-    3. Trả về DataFrame chuẩn có các cột: grid_id, date, year, month, longitude, latitude, ndvi_mean, ndvi_min, ndvi_max.
+    1. Lấy dữ liệu 12 tháng lịch sử liền kề trước (year, month) làm đầu vào cho ONNX.
+    2. Kiểm tra nếu lịch sử không đủ (dưới 10 tháng) thì cảnh báo và không dự báo xa quá mức.
+    3. Chạy mô hình .onnx để dự báo NDVI và trả về DataFrame chuẩn.
     """
-    # 🟢 Import cục bộ ở đây để tránh lỗi vòng lặp (Circular Import)
     from utils.data_loader import get_db_engine
 
     model_path = "HCM-34-Json/lstm_ndvi_hcm_model.onnx"
@@ -34,6 +34,8 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         input_name = ort_session.get_inputs()[0].name
         
         engine = get_db_engine()
+        
+        # 1. Lấy danh sách các grid cơ sở
         base_grid_query = """
             SELECT DISTINCT grid_id, longitude, latitude 
             FROM public.ndvi_records 
@@ -44,19 +46,58 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         if df_grids.empty:
             return generate_fallback_grid_data(year, month)
 
-        predicted_rows = []
-        target_date_str = f"{year}-{month:02d}-01"
+        # 2. Tính mốc thời gian 12 tháng ngược về trước từ (year, month) yêu cầu
+        target_date = pd.Timestamp(year=year, month=month, day=1)
+        start_history_date = target_date - pd.DateOffset(months=12)
+        start_year, start_month = start_history_date.year, start_history_date.month
 
-        dummy_inputs = np.random.rand(len(df_grids), 12, 1).astype(np.float32) 
-        outputs = ort_session.run(None, {input_name: dummy_inputs})
-        preds = outputs[0]
-        
+        # Truy vấn lịch sử 12 tháng ngay trước mốc dự báo
+        history_query = f"""
+            SELECT grid_id, year, month, ndvi_mean 
+            FROM public.ndvi_records 
+            WHERE (year > {start_year} OR (year = {start_year} AND month >= {start_month}))
+              AND (year < {year} OR (year = {year} AND month < {month}))
+            ORDER BY grid_id, year, month
+        """
+        df_history = pd.read_sql(history_query, engine)
+
+        # 3. Kiểm tra tính đầy đủ của dữ liệu (Lấy một grid bất kỳ hoặc tính số tháng trung bình có sẵn)
+        if not df_history.empty:
+            sample_grid_count = df_history[df_history['grid_id'] == df_grids.iloc[0]['grid_id']].shape[0]
+        else:
+            sample_grid_count = 0
+
+        # Nếu dữ liệu lịch sử tích lũy dưới 10 tháng -> Khoảng thời gian quá xa, không đủ dữ liệu dự báo
+        if sample_grid_count < 10:
+            st.warning(f"⚠️ Không đủ dữ liệu lịch sử (chỉ tìm thấy {sample_grid_count}/12 tháng liền kề trước đó). Chương trình không đủ dữ liệu để dự đoán cho khoảng thời gian quá xa này!")
+            return pd.DataFrame()
+
+        predicted_rows = []
+        target_date_str = target_date.strftime("%Y-%m-%d")
+
+        # Duyệt qua từng grid để chạy suy luận ONNX với đúng chuỗi 12 tháng thực tế
         for i, row in df_grids.iterrows():
-            val = float(preds[i][0]) if len(preds[i].shape) > 0 else float(preds[i])
-            val = max(min(val, 0.85), -0.1)
+            g_id = row["grid_id"]
+            grid_hist = df_history[df_history["grid_id"] == g_id]
+            
+            if len(grid_hist) < 12:
+                continue  # Bỏ qua các grid thiếu dữ liệu lịch sử
+                
+            # Chuẩn hóa input thành shape [1, 12, 1]
+            input_seq = grid_hist.sort_values(["year", "month"])["ndvi_mean"].values.astype(np.float32)
+            input_seq = input_seq.reshape(1, 12, 1)
+
+            # Chạy mô hình ONNX
+            outputs = ort_session.run(None, {input_name: input_seq})
+            preds = outputs[0]
+            
+            pred_val = float(preds[0][0]) if len(preds.shape) > 1 and len(preds[0].shape) > 0 else float(preds[0])
+            
+            # Chặn ngưỡng an toàn tránh xanh lè ảo
+            val = max(min(pred_val, 0.85), -0.1)
             
             predicted_rows.append({
-                "grid_id": row["grid_id"],
+                "grid_id": g_id,
                 "date": target_date_str,
                 "year": year,
                 "month": month,
@@ -75,7 +116,6 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
 
 def generate_fallback_grid_data(year, month):
     """Hàm dự phòng tạo lưới tọa độ giả lập khi không tìm thấy model .onnx"""
-    # 🟢 Import cục bộ ở đây luôn
     from utils.data_loader import get_db_engine
     
     engine = get_db_engine()
