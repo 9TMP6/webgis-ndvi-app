@@ -6,7 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 # =============================================================================
-# 1. CẤU HÌNH TRANG & CUSTOM CSS (SỬA LỖI NÚT SIDEBAR & HIDE TOOLBAR)
+# 1. CẤU HÌNH TRANG & CUSTOM CSS (KHẮC PHỤC TRIỆT ĐỂ NÚT THU/MỞ SIDEBAR)
 # =============================================================================
 st.set_page_config(
     layout="wide",
@@ -17,23 +17,48 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* 1. Ẩn cụm nút Fork, GitHub, Status, Menu ở góc trên bên phải */
+    /* 1. Ẩn Toolbar bên phải (Fork, GitHub, Menu 3 chấm) */
     [data-testid="stToolbar"] {
+        visibility: hidden !important;
+        height: 0px !important;
+        position: absolute !important;
+        right: -9999px !important;
+    }
+    [data-testid="stDecoration"] {
         display: none !important;
     }
-    
-    /* 2. Giữ Header trong suốt để nút Mở Sidebar (>) luôn xuất hiện & bấm được */
-    header[data-testid="stHeader"] {
-        background: transparent !important;
-        pointer-events: none;
-    }
-    header[data-testid="stHeader"] button {
-        pointer-events: auto !important;
-    }
-    
-    /* 3. Ẩn Footer mặc định */
     footer {
         display: none !important;
+    }
+
+    /* 2. Cấu hình Header & Ép Nút Mở Sidebar (>) luôn hiển thị nổi lên trên */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        z-index: 99990 !important;
+    }
+
+    /* Định dạng nút mở Sidebar (>) khi bị thu gọn */
+    [data-testid="stSidebarCollapsedControl"], 
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+        top: 0.6rem !important;
+        left: 0.6rem !important;
+        background-color: #0F172A !important;
+        border: 1px solid #38BDF8 !important;
+        border-radius: 6px !important;
+        padding: 2px !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="collapsedControl"] button {
+        color: #38BDF8 !important;
+    }
+
+    /* Định dạng nút đóng Sidebar (<<) khi đang mở */
+    [data-testid="stSidebarCollapseButton"] button {
+        color: #38BDF8 !important;
     }
 
     /* Reset & Dark Background */
@@ -45,12 +70,12 @@ st.markdown("""
         color: #E2E8F0;
     }
     
-    /* Thu gọn padding chính của Streamlit */
+    /* Padding trang chính (đẩy nhẹ top để tránh bị nút > đè lên tiêu đề) */
     .block-container {
-        padding-top: 1.2rem !important;
+        padding-top: 2.2rem !important;
         padding-bottom: 0.8rem !important;
         padding-left: 1rem !important;
-        padding-right: 0.3rem !important;
+        padding-right: 0.5rem !important;
     }
 
     /* Top Header Bar Custom */
@@ -62,7 +87,7 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
     .brand-title {
         font-size: 1.1rem !important;
