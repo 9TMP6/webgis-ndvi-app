@@ -108,7 +108,7 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
 
         # Map tuyến tính về dải NDVI thực tế tại TP.HCM (0.15 đến 0.75)
         # Nếu bạn thấy vẫn bị ngược màu (xanh <-> cam), hãy đổi chỗ 0.75 và 0.15 cho nhau
-        scaled_preds = 0.15 + normalized_preds * (0.75 - 0.15)
+        scaled_preds = 0.75 - normalized_preds * (0.75 - 0.15)
 
         # 6. Đóng gói kết quả đầu ra 📦
         target_date_str = target_date.strftime("%Y-%m-%d")
