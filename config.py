@@ -20,7 +20,7 @@ LOCATION_DATA = {
         "Quận 11 - Phường 15": [10.7660, 106.6540, 15],
 
         # 🏙️ THÀNH PHỐ THỦ ĐỨC (ĐÔNG TP.HCM)
-        "TP. Thủ Đức - Toàn khu vực": [10.8494, 106.7537, 12],
+        "TP. Thủ Đức ": [10.8494, 106.7537, 12],
         "TP. Thủ Đức - P. Thảo Điền": [10.8062, 106.7328, 14],
         "TP. Thủ Đức - P. An Khánh (Thủ Thiêm)": [10.7780, 106.7180, 14],
         "TP. Thủ Đức - P. Linh Trung (ĐHQG)": [10.8710, 106.7900, 14],
