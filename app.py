@@ -80,7 +80,9 @@ st.markdown("<p style='color: #94A3B8; font-size: 0.85rem; margin-top: -10px;'>B
 # 6. Bản đồ & Chỉ số
 col_map, col_metrics = st.columns([3.3, 1.0])
 with col_map:
-    render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=ndvi_df, selected_time=selected_time)
+        render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=ndvi_df,
+               selected_time=selected_time, selected_district=selected_district)
+    #render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=ndvi_df, selected_time=selected_time)
 with col_metrics:
     render_metrics(df=ndvi_df) # 🟢 Đã truyền df=ndvi_df để cập nhật chỉ số động
 
