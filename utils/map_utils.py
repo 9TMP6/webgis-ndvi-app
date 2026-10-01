@@ -64,61 +64,46 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
         grid_ndvi_fill = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='nearest')
         grid_ndvi = np.where(np.isnan(grid_ndvi), grid_ndvi_fill, grid_ndvi)
 
-    # 3. 🪄 BÍ KÍP ARCGIS: Dùng Gaussian Filter làm mịn dải ranh giới màu (sigma = 1.2 -> 1.5)
-    grid_ndvi_smooth = gaussian_filter(grid_ndvi, sigma=1.3)
+    # 3. làm mịn dải ranh giới màu (sigma = 0.8 để tránh làm biến dạng dải NDVI thực)
+    grid_ndvi_smooth = gaussian_filter(grid_ndvi, sigma=0.8)
 
-    # # 4. Bảng màu gradient 10 điểm mượt như dải màu RdYlGn chuyên dụng của ArcGIS
-    # colors = [
-    #     "#a50026", "#d73027", "#f46d43", "#fdae61", 
-    #     "#fee08b", "#d9ef8b", "#a6d96a", "#66bd63", 
-    #     "#1a9850", "#006837"
-    # ]
-    # cmap = mcolors.LinearSegmentedColormap.from_list("arcgis_smooth_ndvi", colors)
-    # vmin_val = max(float(ndvis.min()), 0.05)
-    # vmax_val = min(float(ndvis.max()), 0.80)
-    # # norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
-    # norm = mcolors.Normalize(vmin=vmin_val, vmax=vmax_val)
-    # rgba_img = cmap(norm(grid_ndvi_smooth))
-
-    # # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
-    # alpha_channel = np.ones_like(grid_ndvi_smooth)
-    # alpha_channel[grid_ndvi_smooth < 0.1] = 0.0
-
-
-    # try:
-    #     from utils.data_loader import load_local_shapefile
-    #     gdf_shape = load_local_shapefile()
-    #     if gdf_shape is not None and not gdf_shape.empty:
-    #         # Chuyển về hệ tọa độ chuẩn WGS84 nếu cần
-    #         if gdf_shape.crs and str(gdf_shape.crs).upper() != "EPSG:4326":
-    #             gdf_shape = gdf_shape.to_crs(epsg=4326)
-            
-    #         geom_union = gdf_shape.unary_union
-
-    #         # Kiểm tra pixel nằm trong ranh giới Polygon
-    #         try:
-    #             from shapely import contains_xy
-    #             inside_mask = contains_xy(geom_union, grid_lon_mesh.ravel(), grid_lat_mesh.ravel()).reshape(grid_lon_mesh.shape)
-    #         except ImportError:
-    #             from shapely.vectorized import contains
-    #             inside_mask = contains(geom_union, grid_lon_mesh, grid_lat_mesh)
-
-    #         # Làm trong suốt hoàn toàn các ô ngoài ranh giới
-    #         alpha_channel[~inside_mask] = 0.0
-    # except Exception as e:
-    #     print(f"⚠️ Không thể cắt theo GeoJSON: {e}")
-
-    # 4. Bảng màu NDVI 5 mức chuẩn viễn thám 🌈
-    colors = ['#2b83ba', '#d7191c', '#fdae61', '#a6d96a', '#1a9641']
-    bounds = [-1.0, 0.0, 0.18, 0.30, 0.45, 1.0]
+    # 4. 🎨 BẢNG MÀU CONTINUOUS DẠNG ARCGIS/QGIS CHUẨN VIỄN THÁM
+    # Nước (-1.0 -> 0.0): Xanh dương
+    # Đô thị (0.0 -> 0.18): Đỏ / Cam đậm
+    # Đất trống/Cỏ thưa (0.18 -> 0.28): Vàng / Nâu
+    # Nông nghiệp/Cây xanh trung bình (0.28 -> 0.45): Xanh lá mạ / Xanh lá nhạt
+    # Rừng/Cây xanh rậm rạp (> 0.45): Xanh lá đậm
     
-    cmap = mcolors.ListedColormap(colors)
-    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    cdict = {
+        'red':   ((0.0, 0.17, 0.17),  # Nước (Blue)
+                  (0.2, 0.84, 0.84),  # Đô thị (Red)
+                  (0.35, 0.99, 0.99), # Đất trống (Orange)
+                  (0.5, 0.65, 0.65),  # Thực vật nhẹ (Light Green)
+                  (0.7, 0.10, 0.10),  # Thực vật đậm (Green)
+                  (1.0, 0.00, 0.00)), # Rừng rậm (Dark Green)
+
+        'green': ((0.0, 0.51, 0.51),
+                  (0.2, 0.10, 0.10),
+                  (0.35, 0.68, 0.68),
+                  (0.5, 0.85, 0.85),
+                  (0.7, 0.59, 0.59),
+                  (1.0, 0.41, 0.41)),
+
+        'blue':  ((0.0, 0.73, 0.73),
+                  (0.2, 0.11, 0.11),
+                  (0.35, 0.38, 0.38),
+                  (0.5, 0.41, 0.41),
+                  (0.7, 0.31, 0.31),
+                  (1.0, 0.22, 0.22))
+    }
+    
+    cmap = mcolors.LinearSegmentedColormap('ArcGIS_NDVI', cdict)
+    norm = mcolors.Normalize(vmin=-0.1, vmax=0.65)
 
     rgba_img = cmap(norm(grid_ndvi_smooth))
 
     # Giữ nguyên độ hiển thị cho tất cả các vùng (Bao gồm Nước & Đô thị bê tông) 🏢🌊
-    alpha_channel = np.ones_like(grid_ndvi_smooth)
+    alpha_channel = np.ones_like(grid_ndvi_smooth) * 0.85
 
     try:
         from utils.data_loader import load_local_shapefile
@@ -141,7 +126,6 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     except Exception as e:
         print(f"⚠️ Không thể cắt theo GeoJSON: {e}")
 
-    
     rgba_img[..., 3] = alpha_channel
 
     # Đảo trục Y cho đúng tọa độ GIS
@@ -179,7 +163,7 @@ def build_folium_map(df: pd.DataFrame, selected_date: str):
             ImageOverlay(
                 image=img_base64,
                 bounds=bounds,
-                opacity=0.80, # Độ rõ màu hoàn hảo
+                opacity=0.85, # Độ rõ màu hoàn hảo
                 name=f"Lớp phủ NDVI ({selected_date})",
                 interactive=True
             ).add_to(m)
