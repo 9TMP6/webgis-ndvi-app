@@ -51,10 +51,9 @@ def render_metrics(df=None):
             <div style="height:12px;border-radius:3px;background:linear-gradient(to right,{grad});"></div>
             <div style="position:relative;height:14px;font-size:0.65rem;color:#94A3B8;">{ticks}</div>
             <div class="legend-item"><span class="color-box" style="background:#2b83ba;"></span> &lt; 0.0 (Sông hồ, mặt nước) 🌊</div>
-            <div class="legend-item"><span class="color-box" style="background:#d73027;"></span> 0.00 - 0.20 (Đô thị, bê tông) 🏢</div>
-            <div class="legend-item"><span class="color-box" style="background:#fdae61;"></span> 0.20 - 0.32 (Đất trống, nhà thưa) 🏗️</div>
-            <div class="legend-item"><span class="color-box" style="background:#91cf60;"></span> 0.32 - 0.48 (Cây xanh đô thị) 🍃</div>
-            <div class="legend-item"><span class="color-box" style="background:#1a9850;"></span> ≥ 0.48 (Rừng, cây trồng rậm) 🌳</div>
+            <div class="legend-item"><span class="color-box" style="background:#d73027;"></span> 0.00 - 0.18 (Đô thị, bê tông) 🏢</div>
+            <div class="legend-item"><span class="color-box" style="background:#ef6a38;"></span> 0.18 - 0.30 (Đất trống, nhà thưa) 🏗️</div>
+            <div class="legend-item"><span class="color-box" style="background:#d9ef8b;"></span> 0.30 - 0.45 (Cây xanh đô thị) 🍃</div><div class="legend-item"><span class="color-box" style="background:#1a9850;"></span> ≥ 0.48 (Rừng, cây trồng rậm) 🌳</div>
         </div>
     """, unsafe_allow_html=True)
 def render_csv_export_button(df_result: pd.DataFrame, selected_date: str):
