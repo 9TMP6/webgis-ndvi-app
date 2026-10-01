@@ -187,3 +187,98 @@ def build_folium_map(df: pd.DataFrame, selected_date: str):
             folium.LayerControl().add_to(m)
 
     return m
+
+def generate_ndvi_raster_for_export(df: pd.DataFrame, target_res_meters: int = 10):
+    """
+    Hàm chuyên dụng chỉ dùng khi tải ảnh về máy: Tự động chuẩn hóa khung hình ôm khít ranh giới 🖼️
+    """
+    try:
+        from scipy.interpolate import griddata
+        from scipy.ndimage import gaussian_filter
+    except ImportError:
+        return None
+
+    if df is None or df.empty:
+        return None
+
+    df_clean = df.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
+    if df_clean.empty:
+        return None
+
+    lons = df_clean['longitude'].values
+    lats = df_clean['latitude'].values
+    ndvis = df_clean['ndvi_mean'].values
+
+    lon_min, lon_max = float(lons.min()), float(lons.max())
+    lat_min, lat_max = float(lats.min()), float(lats.max())
+
+    if lon_min == lon_max or lat_min == lat_max:
+        return None
+
+    # 🌟 ĐOẠN QUYẾT ĐỊNH KHÔNG BỊ TRÀN VIẾN / TRẮNG DƯỚI: TÍNH TỶ LỆ CHUẨN
+    lon_span = lon_max - lon_min
+    lat_span = lat_max - lat_min
+    max_side = 600  # Độ nét cao cho ảnh tải về
+
+    if lon_span >= lat_span:
+        grid_cols = max_side
+        grid_rows = max(int(max_side * (lat_span / lon_span)), 50)
+    else:
+        grid_rows = max_side
+        grid_cols = max(int(max_side * (lon_span / lat_span)), 50)
+
+    grid_lon = np.linspace(lon_min, lon_max, grid_cols)
+    grid_lat = np.linspace(lat_min, lat_max, grid_rows)
+    grid_lon_mesh, grid_lat_mesh = np.meshgrid(grid_lon, grid_lat)
+
+    grid_ndvi = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='linear')
+    if np.isnan(grid_ndvi).any():
+        grid_ndvi_fill = griddata((lons, lats), ndvis, (grid_lon_mesh, grid_lat_mesh), method='nearest')
+        grid_ndvi = np.where(np.isnan(grid_ndvi), grid_ndvi_fill, grid_ndvi)
+
+    grid_ndvi_smooth = gaussian_filter(grid_ndvi, sigma=0.8)
+
+    # Giữ nguyên bảng màu ArcGIS chuẩn
+    cdict = {
+        'red':   ((0.0, 0.17, 0.17), (0.2, 0.84, 0.84), (0.35, 0.99, 0.99), (0.5, 0.65, 0.65), (0.7, 0.10, 0.10), (1.0, 0.00, 0.00)),
+        'green': ((0.0, 0.51, 0.51), (0.2, 0.10, 0.10), (0.35, 0.68, 0.68), (0.5, 0.85, 0.85), (0.7, 0.59, 0.59), (1.0, 0.41, 0.41)),
+        'blue':  ((0.0, 0.73, 0.73), (0.2, 0.11, 0.11), (0.35, 0.38, 0.38), (0.5, 0.41, 0.41), (0.7, 0.31, 0.31), (1.0, 0.22, 0.22))
+    }
+    cmap = mcolors.LinearSegmentedColormap('ArcGIS_NDVI', cdict)
+    
+    vmin, vmax = float(ndvis.min()), float(ndvis.max())
+    if vmin == vmax: vmin, vmax = 0.0, 1.0
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+    
+    rgba_img = cmap(norm(grid_ndvi_smooth))
+    alpha_channel = np.ones_like(grid_ndvi_smooth) * 0.85
+
+    try:
+        from utils.data_loader import load_local_shapefile
+        gdf_shape = load_local_shapefile()
+        if gdf_shape is not None and not gdf_shape.empty:
+            if gdf_shape.crs and str(gdf_shape.crs).upper() != "EPSG:4326":
+                gdf_shape = gdf_shape.to_crs(epsg=4326)
+            geom_union = gdf_shape.unary_union
+            try:
+                from shapely import contains_xy
+                inside_mask = contains_xy(geom_union, grid_lon_mesh.ravel(), grid_lat_mesh.ravel()).reshape(grid_lon_mesh.shape)
+            except ImportError:
+                from shapely.vectorized import contains
+                inside_mask = contains(geom_union, grid_lon_mesh, grid_lat_mesh)
+            if inside_mask.any():
+                alpha_channel[~inside_mask] = 0.0
+    except Exception:
+        pass
+
+    rgba_img[..., 3] = alpha_channel
+    rgba_img = np.flipud(rgba_img)
+
+    img_uint8 = (rgba_img * 255).astype(np.uint8)
+    img = Image.fromarray(img_uint8)
+    img = img.resize((grid_cols * 2, grid_rows * 2), resample=Image.Resampling.BICUBIC)
+
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer.getvalue()
