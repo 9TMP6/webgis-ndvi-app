@@ -100,6 +100,10 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         # 4. Chạy suy luận ONNX Batch Inference 🧠
         outputs = ort_session.run(None, {input_name: values_matrix})
         raw_preds = outputs[0].flatten()
+        #Đảo
+        min_val = np.min(raw_preds)
+        max_val = np.max(raw_preds)
+        inverted_preds = min_val + max_val - raw_preds
 
         # 5. Giữ chuẩn giá trị NDVI thực tế (Tránh ép méo dải màu) 🎨
         scaled_preds = np.clip(raw_preds, 0.05, 0.85)
