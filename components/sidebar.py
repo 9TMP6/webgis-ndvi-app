@@ -87,14 +87,13 @@ def render_sidebar(df: pd.DataFrame = None):
             if btn_csv and not has_data:
                 st.toast("ℹ️ Bạn đã tải file CSV mẫu. Hãy nhấn '🚀 CHẠY DỰ BÁO AI' để có dữ liệu thực tế nhé!", icon="🔔")
 
-            # 🟢 2. XUẤT FILE ẢNH RASTER PNG
+            # 🟢 2. XUẤT FILE ẢNH RASTER PNG (Sử dụng hàm xuất riêng biệt để không khoảng trắng)
             png_bytes = None
             if has_data:
                 try:
-                    img_base64, _ = generate_ndvi_raster(df)
-                    if img_base64 and "," in img_base64:
-                        base64_str = img_base64.split(",")[1]
-                        png_bytes = base64.b64decode(base64_str)
+                    # 🌟 Thay hàm cũ bằng hàm export chuyên dụng để ảnh ôm khít, không bị dư khoảng trắng
+                    from utils.map_utils import generate_ndvi_raster_for_export
+                    png_bytes = generate_ndvi_raster_for_export(df)
                 except Exception:
                     png_bytes = None
 
@@ -104,7 +103,7 @@ def render_sidebar(df: pd.DataFrame = None):
                 file_name_png = f"ndvi_map_{selected_district}_mac_dinh.png"
             else:
                 file_name_png = f"ndvi_map_{selected_district}_{selected_year}_{selected_month:02d}.png"
-
+                
             btn_png = st.download_button(
                 label="🖼️ Xuất ảnh NDVI (.PNG)",
                 data=png_bytes,
