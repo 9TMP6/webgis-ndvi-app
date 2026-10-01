@@ -1,60 +1,52 @@
 # =============================================================================
 # utils/ai_engine.py
 # GEO-NDVI INTELLIGENCE PLATFORM
-# AI Engine - ONNX NDVI Spatial Prediction
+#
+# Ý tưởng:
+#   1. Lấy toàn bộ grid 500x500 từ PostgreSQL
+#   2. Chọn khoảng 1.500 grid đại diện, phân bố đều theo không gian
+#   3. Với mỗi grid -> lấy đúng 12 tháng lịch sử
+#   4. Đưa 12 tháng vào ONNX
+#   5. Prediction vẫn gắn đúng grid_id
+#   6. Trả khoảng 1.500 điểm cho map_utils.py
+#   7. map_utils.py chịu trách nhiệm nội suy / lan NDVI ra toàn vùng
 # =============================================================================
 
 import os
 import numpy as np
 import pandas as pd
 import onnxruntime as ort
-import streamlit as st
 
 
 # =============================================================================
-# 1. CẤU HÌNH
+# CẤU HÌNH
 # =============================================================================
 
 MODEL_PATH = "HCM-34-Json/lstm_ndvi_hcm_model.onnx"
 
+# Số điểm AI cần dự đoán
+TARGET_SAMPLE_COUNT = 1500
+
+# Số tháng lịch sử đưa vào model
 HISTORY_MONTHS = 12
 
-# Số ô lấy mẫu theo không gian.
-# 1 = chạy toàn bộ grid.
-# 4 = lấy 1/4 số grid.
-#
-# Khuyến nghị:
-# - Nếu model + máy chủ đủ mạnh: 1
-# - Nếu Streamlit Cloud yếu: 2 hoặc 4
-#
-# Không nên dùng 12 như code cũ vì sẽ quá thưa.
-SPATIAL_SAMPLE_STEP = 2
-
-# Giá trị NDVI hợp lệ
+# Khoảng NDVI hợp lệ
 NDVI_MIN = -1.0
 NDVI_MAX = 1.0
 
 
 # =============================================================================
-# 2. HÀM KIỂM TRA MODEL
+# 1. LOAD ONNX MODEL
 # =============================================================================
 
-def _load_onnx_model():
-    """
-    Load model ONNX.
-
-    Trả về:
-        ort_session, input_name
-
-    hoặc:
-        None, None nếu model không tồn tại.
-    """
+def load_onnx_model():
 
     if not os.path.exists(MODEL_PATH):
-        print(f"[AI] Không tìm thấy model: {MODEL_PATH}")
+        print(f"[AI ERROR] Không tìm thấy model: {MODEL_PATH}")
         return None, None
 
     try:
+
         session = ort.InferenceSession(
             MODEL_PATH,
             providers=["CPUExecutionProvider"]
@@ -62,93 +54,27 @@ def _load_onnx_model():
 
         input_name = session.get_inputs()[0].name
 
-        print("[AI] ONNX model loaded successfully.")
-        print(f"[AI] Input name: {input_name}")
+        print("========================================")
+        print("[AI] ONNX MODEL LOADED")
+        print("[AI] Input :", input_name)
+        print("[AI] Shape :", session.get_inputs()[0].shape)
+        print("[AI] Type  :", session.get_inputs()[0].type)
+        print("========================================")
 
         return session, input_name
 
     except Exception as e:
-        print(f"[AI] Không thể load ONNX model: {e}")
+
+        print(f"[AI ERROR] Không load được ONNX: {e}")
+
         return None, None
 
 
 # =============================================================================
-# 3. KIỂM TRA INPUT MODEL
+# 2. LẤY TOÀN BỘ GRID
 # =============================================================================
 
-def _inspect_model(session):
-    """
-    In thông tin input/output của model để debug.
-    """
-
-    try:
-        input_info = session.get_inputs()[0]
-        output_info = session.get_outputs()[0]
-
-        print("========== ONNX MODEL ==========")
-        print("Input name :", input_info.name)
-        print("Input shape:", input_info.shape)
-        print("Input type :", input_info.type)
-
-        print("Output name :", output_info.name)
-        print("Output shape:", output_info.shape)
-        print("Output type :", output_info.type)
-
-        print("================================")
-
-    except Exception as e:
-        print(f"[AI] Không thể inspect model: {e}")
-
-
-# =============================================================================
-# 4. CHUẨN HÓA OUTPUT AI
-# =============================================================================
-
-def _clean_prediction_values(values):
-    """
-    Làm sạch kết quả dự đoán.
-
-    QUAN TRỌNG:
-    Không Min-Max stretch toàn bộ bản đồ.
-
-    Vì nếu stretch:
-        vùng NDVI 0.35 -> có thể thành 0.65
-        vùng NDVI 0.45 -> có thể thành 0.75
-
-    dẫn tới màu bản đồ không còn phản ánh đúng output model.
-    """
-
-    values = np.asarray(values, dtype=np.float32).reshape(-1)
-
-    values = np.nan_to_num(
-        values,
-        nan=0.0,
-        posinf=1.0,
-        neginf=-1.0
-    )
-
-    values = np.clip(
-        values,
-        NDVI_MIN,
-        NDVI_MAX
-    )
-
-    return values
-
-
-# =============================================================================
-# 5. LẤY GRID
-# =============================================================================
-
-def _load_base_grid(engine):
-    """
-    Lấy danh sách grid + tọa độ.
-
-    QUAN TRỌNG:
-    grid_id là khóa không gian.
-
-    Không được để kết quả AI bị ghép theo index.
-    """
+def load_all_grids(engine):
 
     query = """
         SELECT DISTINCT
@@ -197,75 +123,250 @@ def _load_base_grid(engine):
 
 
 # =============================================================================
-# 6. CHỌN GRID THEO KHÔNG GIAN
+# 3. CHỌN ~1500 ĐIỂM PHÂN BỐ ĐỀU KHÔNG GIAN
 # =============================================================================
 
-def _sample_grid(df_grid, sample_step):
-    """
-    Lấy mẫu grid.
-
-    Lưu ý:
-    Đây chỉ là bước giảm tải.
-
-    grid_id vẫn được giữ nguyên để kết quả AI quay về đúng tọa độ.
-    """
+def select_spatial_samples(df_grid, target_count=1500):
 
     if df_grid.empty:
-        return df_grid
+        return pd.DataFrame()
 
-    if sample_step <= 1:
+    total = len(df_grid)
+
+    # Nếu tổng số grid <= target thì lấy toàn bộ
+    if total <= target_count:
         return df_grid.copy()
 
-    sampled = df_grid.iloc[::sample_step].copy()
+    # -------------------------------------------------------------------------
+    # KHÔNG dùng:
+    #
+    # df.iloc[::12]
+    #
+    # vì grid_id không đảm bảo phân bố đều về mặt không gian.
+    #
+    # -------------------------------------------------------------------------
 
-    return sampled.reset_index(drop=True)
+    df = df_grid.copy()
+
+    # Chia không gian thành các cell nhỏ.
+    #
+    # Sau đó lấy 1 grid đại diện ở mỗi cell.
+    #
+    # Đây là spatial sampling.
+    # -------------------------------------------------------------------------
+
+    lon_min = df["longitude"].min()
+    lon_max = df["longitude"].max()
+
+    lat_min = df["latitude"].min()
+    lat_max = df["latitude"].max()
+
+    # Tỷ lệ chiều rộng / chiều cao
+    lon_range = lon_max - lon_min
+    lat_range = lat_max - lat_min
+
+    if lat_range == 0 or lon_range == 0:
+        return df.iloc[
+            np.linspace(
+                0,
+                len(df) - 1,
+                target_count
+            ).astype(int)
+        ].copy()
+
+    aspect = lon_range / lat_range
+
+    # Tính số cell theo 2 chiều
+    nx = int(
+        np.sqrt(
+            target_count * aspect
+        )
+    )
+
+    ny = int(
+        np.ceil(
+            target_count / max(nx, 1)
+        )
+    )
+
+    nx = max(nx, 1)
+    ny = max(ny, 1)
+
+    # Gán mỗi grid vào một spatial cell
+
+    df["_cell_x"] = (
+        (
+            (df["longitude"] - lon_min)
+            / lon_range
+        )
+        * nx
+    ).astype(int)
+
+    df["_cell_y"] = (
+        (
+            (df["latitude"] - lat_min)
+            / lat_range
+        )
+        * ny
+    ).astype(int)
+
+    # Đưa giá trị biên vào cell cuối
+    df["_cell_x"] = df["_cell_x"].clip(
+        0,
+        nx - 1
+    )
+
+    df["_cell_y"] = df["_cell_y"].clip(
+        0,
+        ny - 1
+    )
+
+    # -------------------------------------------------------------------------
+    # Lấy grid gần tâm mỗi cell
+    # -------------------------------------------------------------------------
+
+    df["_center_x"] = (
+        lon_min
+        + (
+            df["_cell_x"] + 0.5
+        )
+        / nx
+        * lon_range
+    )
+
+    df["_center_y"] = (
+        lat_min
+        + (
+            df["_cell_y"] + 0.5
+        )
+        / ny
+        * lat_range
+    )
+
+    df["_distance"] = (
+        (
+            df["longitude"]
+            - df["_center_x"]
+        ) ** 2
+        +
+        (
+            df["latitude"]
+            - df["_center_y"]
+        ) ** 2
+    )
+
+    sampled = (
+        df.sort_values(
+            "_distance"
+        )
+        .drop_duplicates(
+            subset=[
+                "_cell_x",
+                "_cell_y"
+            ]
+        )
+    )
+
+    # -------------------------------------------------------------------------
+    # Nếu spatial cells tạo ra ít hơn 1500 điểm
+    # thì bổ sung bằng cách lấy đều trong grid còn lại.
+    # -------------------------------------------------------------------------
+
+    if len(sampled) < target_count:
+
+        selected_ids = set(
+            sampled["grid_id"].tolist()
+        )
+
+        remaining = df[
+            ~df["grid_id"].isin(
+                selected_ids
+            )
+        ].copy()
+
+        need = target_count - len(sampled)
+
+        if len(remaining) > 0:
+
+            indices = np.linspace(
+                0,
+                len(remaining) - 1,
+                min(
+                    need,
+                    len(remaining)
+                )
+            ).astype(int)
+
+            sampled = pd.concat(
+                [
+                    sampled,
+                    remaining.iloc[indices]
+                ],
+                ignore_index=True
+            )
+
+    # Nếu nhiều hơn 1500 thì lấy 1500
+    if len(sampled) > target_count:
+
+        sampled = sampled.iloc[
+            np.linspace(
+                0,
+                len(sampled) - 1,
+                target_count
+            ).astype(int)
+        ]
+
+    # -------------------------------------------------------------------------
+    # Xóa cột tạm
+    # -------------------------------------------------------------------------
+
+    temp_cols = [
+        "_cell_x",
+        "_cell_y",
+        "_center_x",
+        "_center_y",
+        "_distance"
+    ]
+
+    sampled = sampled.drop(
+        columns=[
+            c
+            for c in temp_cols
+            if c in sampled.columns
+        ]
+    )
+
+    sampled = sampled.drop_duplicates(
+        subset=["grid_id"]
+    )
+
+    return sampled.reset_index(
+        drop=True
+    )
 
 
 # =============================================================================
-# 7. LẤY CHUỖI 12 THÁNG
+# 4. LẤY 12 THÁNG LỊCH SỬ
 # =============================================================================
 
-def _load_history(
+def load_history(
     engine,
     grid_ids,
     target_year,
     target_month
 ):
-    """
-    Lấy đúng 12 tháng lịch sử cho từng grid.
-
-    Đây là phần QUAN TRỌNG NHẤT của file.
-
-    Mỗi grid_id sẽ có một chuỗi:
-
-        grid A
-        2025-10
-        2025-11
-        ...
-        2026-09
-
-    Sau đó mới đưa vào model.
-    """
 
     if not grid_ids:
         return pd.DataFrame()
 
-    # -------------------------------------------------------------------------
-    # Tạo danh sách ID an toàn
-    # -------------------------------------------------------------------------
-
-    grid_ids = [
+    ids = [
         int(x)
         for x in grid_ids
-        if pd.notna(x)
     ]
-
-    if not grid_ids:
-        return pd.DataFrame()
 
     ids_sql = ",".join(
         str(x)
-        for x in grid_ids
+        for x in ids
     )
 
     target_date = pd.Timestamp(
@@ -274,10 +375,27 @@ def _load_history(
         day=1
     )
 
-    # 12 tháng trước tháng dự đoán
-    history_end = target_date - pd.DateOffset(months=1)
-    history_start = target_date - pd.DateOffset(
-        months=HISTORY_MONTHS
+    # Ví dụ dự đoán 09/2026
+    #
+    # Lịch sử:
+    # 09/2025
+    # 10/2025
+    # ...
+    # 08/2026
+    #
+
+    start_date = (
+        target_date
+        - pd.DateOffset(
+            months=HISTORY_MONTHS
+        )
+    )
+
+    end_date = (
+        target_date
+        - pd.DateOffset(
+            months=1
+        )
     )
 
     query = f"""
@@ -289,22 +407,23 @@ def _load_history(
         FROM public.ndvi_records
         WHERE grid_id IN ({ids_sql})
           AND MAKE_DATE(year, month, 1)
-              BETWEEN '{history_start.strftime("%Y-%m-%d")}'
-              AND '{history_end.strftime("%Y-%m-%d")}'
+              BETWEEN
+              '{start_date.strftime("%Y-%m-%d")}'
+              AND
+              '{end_date.strftime("%Y-%m-%d")}'
         ORDER BY
             grid_id,
             year,
             month
     """
 
-    df = pd.read_sql(query, engine)
+    df = pd.read_sql(
+        query,
+        engine
+    )
 
     if df.empty:
         return pd.DataFrame()
-
-    # -------------------------------------------------------------------------
-    # Chuẩn hóa kiểu dữ liệu
-    # -------------------------------------------------------------------------
 
     df["grid_id"] = pd.to_numeric(
         df["grid_id"],
@@ -314,12 +433,12 @@ def _load_history(
     df["year"] = pd.to_numeric(
         df["year"],
         errors="coerce"
-    ).astype("Int64")
+    )
 
     df["month"] = pd.to_numeric(
         df["month"],
         errors="coerce"
-    ).astype("Int64")
+    )
 
     df["ndvi_mean"] = pd.to_numeric(
         df["ndvi_mean"],
@@ -335,20 +454,17 @@ def _load_history(
         ]
     )
 
-    # -------------------------------------------------------------------------
-    # Loại NDVI ngoài khoảng
-    # -------------------------------------------------------------------------
+    df["year"] = df["year"].astype(int)
+    df["month"] = df["month"].astype(int)
 
+    # NDVI chỉ giới hạn, KHÔNG stretch
     df["ndvi_mean"] = np.clip(
-        df["ndvi_mean"].astype(float),
+        df["ndvi_mean"],
         NDVI_MIN,
         NDVI_MAX
     )
 
-    # -------------------------------------------------------------------------
-    # Loại duplicate
-    # -------------------------------------------------------------------------
-
+    # Nếu database có duplicate
     df = (
         df
         .sort_values(
@@ -359,251 +475,213 @@ def _load_history(
             ]
         )
         .drop_duplicates(
-            subset=[
+            [
                 "grid_id",
                 "year",
                 "month"
             ],
             keep="last"
         )
-        .reset_index(drop=True)
     )
 
-    return df
+    return df.reset_index(drop=True)
 
 
 # =============================================================================
-# 8. TẠO INPUT BATCH CHO MODEL
+# 5. TẠO INPUT CHO AI
 # =============================================================================
 
-def _build_model_input(
+def build_sequences(
     df_history,
-    valid_grid_ids
+    grid_ids
 ):
-    """
-    Tạo ma trận:
-
-        [N, 12, 1]
-
-    với N = số grid hợp lệ.
-
-    QUAN TRỌNG:
-    Trả thêm grid_ids theo đúng thứ tự batch.
-
-    Ví dụ:
-
-        batch[0] -> grid 1001
-        batch[1] -> grid 1005
-        batch[2] -> grid 1012
-
-    Sau inference:
-
-        prediction[0] -> grid 1001
-        prediction[1] -> grid 1005
-        prediction[2] -> grid 1012
-    """
 
     sequences = []
-    ordered_grid_ids = []
+    valid_grid_ids = []
 
-    expected_months = HISTORY_MONTHS
+    for grid_id in grid_ids:
 
-    for grid_id in valid_grid_ids:
-
-        grid_df = df_history[
+        df_one = df_history[
             df_history["grid_id"] == grid_id
         ].copy()
 
-        grid_df = grid_df.sort_values(
-            ["year", "month"]
+        df_one = df_one.sort_values(
+            [
+                "year",
+                "month"
+            ]
         )
 
-        # -------------------------------------------------------------
-        # Kiểm tra đúng số tháng
-        # -------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Chỉ cần đúng 12 tháng
+        # ---------------------------------------------------------------------
 
-        if len(grid_df) != expected_months:
+        if len(df_one) != HISTORY_MONTHS:
             continue
 
-        # -------------------------------------------------------------
-        # Kiểm tra tháng có liên tục không
-        # -------------------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Kiểm tra đúng chuỗi tháng
+        # ---------------------------------------------------------------------
 
         dates = pd.to_datetime(
-            dict(
-                year=grid_df["year"].astype(int),
-                month=grid_df["month"].astype(int),
+            df_one[
+                ["year", "month"]
+            ].assign(
                 day=1
             )
         )
 
-        dates = dates.sort_values()
-
-        expected_dates = pd.date_range(
+        expected = pd.date_range(
             start=dates.iloc[0],
-            periods=expected_months,
+            periods=HISTORY_MONTHS,
             freq="MS"
         )
 
-        if not dates.reset_index(drop=True).equals(
-            expected_dates.to_series().reset_index(drop=True)
+        if not np.array_equal(
+            dates.values.astype("datetime64[M]"),
+            expected.values.astype("datetime64[M]")
         ):
             continue
 
-        # -------------------------------------------------------------
+        # ---------------------------------------------------------------------
         # Lấy NDVI
-        # -------------------------------------------------------------
+        # ---------------------------------------------------------------------
 
         values = (
-            grid_df["ndvi_mean"]
+            df_one["ndvi_mean"]
             .astype(np.float32)
             .to_numpy()
         )
 
-        if len(values) != HISTORY_MONTHS:
-            continue
-
         if np.isnan(values).any():
             continue
 
-        values = np.clip(
-            values,
-            NDVI_MIN,
-            NDVI_MAX
-        )
-
-        # [12] -> [12, 1]
-        sequence = values.reshape(
+        # [12] -> [12,1]
+        values = values.reshape(
             HISTORY_MONTHS,
             1
         )
 
-        sequences.append(sequence)
+        sequences.append(values)
 
-        # GIỮ NGUYÊN ID
-        ordered_grid_ids.append(
+        # CỰC KỲ QUAN TRỌNG
+        # ID này nằm cùng vị trí với sequence.
+        valid_grid_ids.append(
             int(grid_id)
         )
 
     if not sequences:
+
         return (
             np.empty(
-                (0, HISTORY_MONTHS, 1),
+                (
+                    0,
+                    HISTORY_MONTHS,
+                    1
+                ),
                 dtype=np.float32
             ),
             []
         )
 
     X = np.stack(
-        sequences,
-        axis=0
-    ).astype(np.float32)
+        sequences
+    ).astype(
+        np.float32
+    )
 
-    return X, ordered_grid_ids
+    return X, valid_grid_ids
 
 
 # =============================================================================
-# 9. CHẠY ONNX
+# 6. CHẠY ONNX
 # =============================================================================
 
-def _run_onnx(
+def run_model(
     session,
     input_name,
     X
 ):
-    """
-    Chạy inference.
 
-    Input:
-        [N, 12, 1]
-
-    Output:
-        [N]
-    """
-
-    if X is None or len(X) == 0:
+    if len(X) == 0:
         return np.array(
             [],
             dtype=np.float32
         )
 
-    try:
+    outputs = session.run(
+        None,
+        {
+            input_name: X
+        }
+    )
 
-        outputs = session.run(
-            None,
-            {
-                input_name: X
-            }
+    if not outputs:
+        raise RuntimeError(
+            "Model ONNX không trả output."
         )
 
-        if not outputs:
-            raise RuntimeError(
-                "ONNX không trả về output."
-            )
+    predictions = np.asarray(
+        outputs[0]
+    ).reshape(-1)
 
-        predictions = outputs[0]
+    if len(predictions) != len(X):
 
-        predictions = np.asarray(
-            predictions
-        ).reshape(-1)
-
-        if len(predictions) != len(X):
-            raise RuntimeError(
-                f"Số prediction ({len(predictions)}) "
-                f"không khớp số input ({len(X)})."
-            )
-
-        predictions = _clean_prediction_values(
-            predictions
+        raise RuntimeError(
+            f"Model trả {len(predictions)} prediction "
+            f"nhưng input có {len(X)} grid."
         )
 
-        return predictions
+    predictions = np.nan_to_num(
+        predictions,
+        nan=0.0,
+        posinf=1.0,
+        neginf=-1.0
+    )
 
-    except Exception as e:
+    predictions = np.clip(
+        predictions,
+        NDVI_MIN,
+        NDVI_MAX
+    )
 
-        print(
-            f"[AI] ONNX inference error: {e}"
-        )
-
-        raise
+    return predictions.astype(
+        np.float32
+    )
 
 
 # =============================================================================
-# 10. GHÉP PREDICTION VỚI GRID
+# 7. TẠO DATAFRAME KẾT QUẢ
 # =============================================================================
 
-def _build_prediction_dataframe(
-    df_grid,
-    ordered_grid_ids,
+def build_result(
+    sampled_grid,
+    valid_grid_ids,
     predictions,
     year,
     month
 ):
-    """
-    Ghép prediction với tọa độ bằng grid_id.
 
-    TUYỆT ĐỐI KHÔNG ghép bằng index của dataframe gốc.
-    """
+    # -------------------------------------------------------------------------
+    # Tạo dataframe AI
+    # -------------------------------------------------------------------------
 
-    if len(ordered_grid_ids) != len(predictions):
-
-        raise RuntimeError(
-            "Số grid_id và số prediction không bằng nhau."
-        )
-
-    prediction_df = pd.DataFrame(
+    df_prediction = pd.DataFrame(
         {
-            "grid_id": ordered_grid_ids,
+            "grid_id": valid_grid_ids,
             "ndvi_mean": predictions
         }
     )
 
     # -------------------------------------------------------------------------
-    # Ghép tọa độ bằng grid_id
+    # GHÉP BẰNG GRID_ID
+    #
+    # Không ghép bằng index.
+    # Không lấy tọa độ từ grid khác.
     # -------------------------------------------------------------------------
 
-    result = prediction_df.merge(
-        df_grid[
+    result = df_prediction.merge(
+        sampled_grid[
             [
                 "grid_id",
                 "longitude",
@@ -616,7 +694,7 @@ def _build_prediction_dataframe(
     )
 
     # -------------------------------------------------------------------------
-    # Thông tin thời gian
+    # Thời gian
     # -------------------------------------------------------------------------
 
     result["year"] = int(year)
@@ -632,26 +710,23 @@ def _build_prediction_dataframe(
     )
 
     # -------------------------------------------------------------------------
-    # Min / Max
-    #
-    # Đây chỉ là khoảng hiển thị phụ.
-    # Không dùng để quyết định màu chính.
+    # Min / Max phụ
     # -------------------------------------------------------------------------
 
     result["ndvi_min"] = np.clip(
         result["ndvi_mean"] - 0.05,
-        -1.0,
-        1.0
+        -1,
+        1
     )
 
     result["ndvi_max"] = np.clip(
         result["ndvi_mean"] + 0.05,
-        -1.0,
-        1.0
+        -1,
+        1
     )
 
     # -------------------------------------------------------------------------
-    # Chuẩn hóa tọa độ
+    # Kiểu dữ liệu
     # -------------------------------------------------------------------------
 
     result["longitude"] = pd.to_numeric(
@@ -677,46 +752,40 @@ def _build_prediction_dataframe(
         ]
     )
 
-    # -------------------------------------------------------------------------
-    # Sắp xếp theo grid_id
-    # -------------------------------------------------------------------------
-
-    result = result.sort_values(
-        "grid_id"
-    ).reset_index(drop=True)
+    result = result.reset_index(
+        drop=True
+    )
 
     return result
 
 
 # =============================================================================
-# 11. HÀM CHÍNH: RUN AI
+# 8. HÀM CHÍNH
 # =============================================================================
 
 def run_onnx_inference_for_grid(
     year: int,
     month: int,
-    sample_step: int = SPATIAL_SAMPLE_STEP
-) -> pd.DataFrame:
+    sample_step: int = None
+):
 
     from utils.data_loader import get_db_engine
 
-    print(
-        "\n"
-        "==================================================\n"
-        "           GEO-NDVI AI INFERENCE\n"
-        "=================================================="
-    )
+    print("\n")
+    print("================================================")
+    print("        GEO-NDVI AI SPATIAL PREDICTION")
+    print("================================================")
 
     # =========================================================================
-    # BƯỚC 1: LOAD MODEL
+    # A. LOAD MODEL
     # =========================================================================
 
-    session, input_name = _load_onnx_model()
+    session, input_name = load_onnx_model()
 
     if session is None:
 
         print(
-            "[AI] Không có model ONNX -> fallback."
+            "[AI] Model không tồn tại."
         )
 
         return generate_fallback_grid_data(
@@ -724,10 +793,8 @@ def run_onnx_inference_for_grid(
             month
         )
 
-    _inspect_model(session)
-
     # =========================================================================
-    # BƯỚC 2: DATABASE
+    # B. DATABASE
     # =========================================================================
 
     try:
@@ -737,75 +804,80 @@ def run_onnx_inference_for_grid(
     except Exception as e:
 
         print(
-            f"[AI] Không thể kết nối database: {e}"
+            f"[AI ERROR] Database: {e}"
         )
 
         return pd.DataFrame()
 
     # =========================================================================
-    # BƯỚC 3: LOAD GRID
+    # C. LOAD GRID
     # =========================================================================
+
+    print("[AI] Đang lấy toàn bộ grid...")
 
     try:
 
-        df_grid_all = _load_base_grid(
+        df_all_grid = load_all_grids(
             engine
         )
 
     except Exception as e:
 
         print(
-            f"[AI] Lỗi lấy grid: {e}"
+            f"[AI ERROR] Load grid: {e}"
         )
 
         return pd.DataFrame()
 
-    if df_grid_all.empty:
+    if df_all_grid.empty:
 
         print(
-            "[AI] Database không có grid."
+            "[AI ERROR] Không có grid."
         )
 
         return pd.DataFrame()
 
     print(
-        f"[AI] Tổng số grid: "
-        f"{len(df_grid_all):,}"
+        f"[AI] Tổng grid: {len(df_all_grid):,}"
     )
 
     # =========================================================================
-    # BƯỚC 4: SAMPLE GRID
+    # D. CHỌN ~1500 GRID
     # =========================================================================
 
-    df_grid_sampled = _sample_grid(
-        df_grid_all,
-        sample_step
+    sampled_grid = select_spatial_samples(
+        df_all_grid,
+        TARGET_SAMPLE_COUNT
     )
 
     print(
-        f"[AI] Grid được đưa vào AI: "
-        f"{len(df_grid_sampled):,}"
+        f"[AI] Grid lấy mẫu: "
+        f"{len(sampled_grid):,}"
     )
 
-    sampled_grid_ids = (
-        df_grid_sampled["grid_id"]
+    if sampled_grid.empty:
+
+        return pd.DataFrame()
+
+    sampled_ids = (
+        sampled_grid["grid_id"]
         .astype(int)
         .tolist()
     )
 
-    if not sampled_grid_ids:
-
-        return pd.DataFrame()
-
     # =========================================================================
-    # BƯỚC 5: LOAD 12 THÁNG LỊCH SỬ
+    # E. LOAD 12 THÁNG
     # =========================================================================
+
+    print(
+        f"[AI] Đang lấy {HISTORY_MONTHS} tháng lịch sử..."
+    )
 
     try:
 
-        df_history = _load_history(
+        df_history = load_history(
             engine=engine,
-            grid_ids=sampled_grid_ids,
+            grid_ids=sampled_ids,
             target_year=year,
             target_month=month
         )
@@ -813,37 +885,31 @@ def run_onnx_inference_for_grid(
     except Exception as e:
 
         print(
-            f"[AI] Lỗi lấy lịch sử: {e}"
+            f"[AI ERROR] Load history: {e}"
         )
 
         return pd.DataFrame()
 
     if df_history.empty:
 
-        st.warning(
-            "⚠️ Không tìm thấy dữ liệu "
-            "12 tháng lịch sử cho AI."
+        print(
+            "[AI ERROR] Không có dữ liệu lịch sử."
         )
 
         return pd.DataFrame()
 
-    # =========================================================================
-    # BƯỚC 6: KIỂM TRA GRID ĐỦ 12 THÁNG
-    # =========================================================================
-
-    month_counts = (
-        df_history
-        .groupby("grid_id")
-        .size()
+    print(
+        f"[AI] Số dòng lịch sử: "
+        f"{len(df_history):,}"
     )
 
-    valid_grid_ids = (
-        month_counts[
-            month_counts == HISTORY_MONTHS
-        ]
-        .index
-        .astype(int)
-        .tolist()
+    # =========================================================================
+    # F. BUILD SEQUENCE
+    # =========================================================================
+
+    X, valid_grid_ids = build_sequences(
+        df_history,
+        sampled_ids
     )
 
     print(
@@ -851,50 +917,40 @@ def run_onnx_inference_for_grid(
         f"{len(valid_grid_ids):,}"
     )
 
-    if not valid_grid_ids:
-
-        st.warning(
-            "⚠️ Không có grid nào đủ "
-            "12 tháng lịch sử liên tục."
-        )
-
-        return pd.DataFrame()
-
-    # =========================================================================
-    # BƯỚC 7: BUILD INPUT
-    # =========================================================================
-
-    X, ordered_grid_ids = _build_model_input(
-        df_history=df_history,
-        valid_grid_ids=valid_grid_ids
+    print(
+        f"[AI] Input shape: "
+        f"{X.shape}"
     )
 
-    if X.shape[0] == 0:
+    if len(valid_grid_ids) == 0:
 
-        st.warning(
-            "⚠️ Không thể tạo chuỗi "
-            "12 tháng hợp lệ cho AI."
+        print(
+            "[AI ERROR] Không có grid đủ 12 tháng."
         )
 
         return pd.DataFrame()
+
+    # =========================================================================
+    # G. RUN AI
+    # =========================================================================
 
     print(
-        f"[AI] Input shape: {X.shape}"
+        "[AI] Đang chạy ONNX..."
     )
-
-    # =========================================================================
-    # BƯỚC 8: INFERENCE
-    # =========================================================================
 
     try:
 
-        predictions = _run_onnx(
-            session=session,
-            input_name=input_name,
-            X=X
+        predictions = run_model(
+            session,
+            input_name,
+            X
         )
 
-    except Exception:
+    except Exception as e:
+
+        print(
+            f"[AI ERROR] ONNX inference: {e}"
+        )
 
         return generate_fallback_grid_data(
             year,
@@ -902,37 +958,30 @@ def run_onnx_inference_for_grid(
         )
 
     # =========================================================================
-    # BƯỚC 9: DEBUG OUTPUT
+    # H. KIỂM TRA KẾT QUẢ
     # =========================================================================
 
+    print("")
+    print("========== AI RESULT ==========")
+
     print(
-        "\n========== AI OUTPUT =========="
+        f"Count : {len(predictions):,}"
     )
 
     print(
-        pd.Series(
-            predictions
-        ).describe()
+        f"Min   : {predictions.min():.4f}"
     )
 
     print(
-        "Min:",
-        float(predictions.min())
+        f"Max   : {predictions.max():.4f}"
     )
 
     print(
-        "Max:",
-        float(predictions.max())
+        f"Mean  : {predictions.mean():.4f}"
     )
 
     print(
-        "Mean:",
-        float(predictions.mean())
-    )
-
-    print(
-        "Std:",
-        float(predictions.std())
+        f"Std   : {predictions.std():.4f}"
     )
 
     print(
@@ -940,76 +989,66 @@ def run_onnx_inference_for_grid(
     )
 
     # =========================================================================
-    # BƯỚC 10: BUILD RESULT
+    # I. GHÉP GRID + TỌA ĐỘ
     # =========================================================================
 
-    df_result = _build_prediction_dataframe(
-        df_grid=df_grid_sampled,
-        ordered_grid_ids=ordered_grid_ids,
+    result = build_result(
+        sampled_grid=sampled_grid,
+        valid_grid_ids=valid_grid_ids,
         predictions=predictions,
         year=year,
         month=month
     )
 
-    if df_result.empty:
-
-        return pd.DataFrame()
-
     # =========================================================================
-    # BƯỚC 11: KIỂM TRA KHÔNG GIAN
+    # J. KIỂM TRA CUỐI
     # =========================================================================
 
-    print(
-        "\n========== SPATIAL CHECK =========="
-    )
+    print("")
+    print("========== SPATIAL RESULT ==========")
 
     print(
-        "Longitude:",
-        df_result["longitude"].min(),
-        "->",
-        df_result["longitude"].max()
+        f"Result rows : {len(result):,}"
     )
 
-    print(
-        "Latitude:",
-        df_result["latitude"].min(),
-        "->",
-        df_result["latitude"].max()
-    )
+    if not result.empty:
 
-    print(
-        "NDVI:",
-        df_result["ndvi_mean"].min(),
-        "->",
-        df_result["ndvi_mean"].max()
-    )
+        print(
+            f"Longitude : "
+            f"{result['longitude'].min():.6f}"
+            f" -> "
+            f"{result['longitude'].max():.6f}"
+        )
+
+        print(
+            f"Latitude  : "
+            f"{result['latitude'].min():.6f}"
+            f" -> "
+            f"{result['latitude'].max():.6f}"
+        )
+
+        print(
+            f"NDVI      : "
+            f"{result['ndvi_mean'].min():.4f}"
+            f" -> "
+            f"{result['ndvi_mean'].max():.4f}"
+        )
 
     print(
         "===================================="
     )
 
-    # =========================================================================
-    # BƯỚC 12: TRẢ KẾT QUẢ
-    # =========================================================================
-
-    return df_result
+    return result
 
 
 # =============================================================================
-# 12. FALLBACK
+# 9. FALLBACK
 # =============================================================================
 
 def generate_fallback_grid_data(
     year: int,
     month: int
-) -> pd.DataFrame:
-    """
-    Fallback khi không thể chạy model.
-
-    LƯU Ý:
-    Đây chỉ là dữ liệu dự phòng để WebGIS không bị crash.
-    Không phải kết quả AI thật.
-    """
+):
 
     from utils.data_loader import get_db_engine
 
@@ -1026,7 +1065,7 @@ def generate_fallback_grid_data(
             WHERE longitude IS NOT NULL
               AND latitude IS NOT NULL
             ORDER BY grid_id
-            LIMIT 2000
+            LIMIT 1500
         """
 
         df = pd.read_sql(
@@ -1038,11 +1077,12 @@ def generate_fallback_grid_data(
             return pd.DataFrame()
 
         # ---------------------------------------------------------------------
-        # Random chỉ để fallback
+        # Fallback chỉ để app không crash.
+        # Không phải AI thật.
         # ---------------------------------------------------------------------
 
         rng = np.random.default_rng(
-            seed=int(year * 100 + month)
+            seed=year * 100 + month
         )
 
         df["ndvi_mean"] = rng.uniform(
@@ -1068,54 +1108,30 @@ def generate_fallback_grid_data(
 
         df["date"] = (
             pd.Timestamp(
-                year=int(year),
-                month=int(month),
+                year=year,
+                month=month,
                 day=1
+            ).strftime(
+                "%Y-%m-%d"
             )
-            .strftime("%Y-%m-%d")
         )
 
-        df["longitude"] = pd.to_numeric(
-            df["longitude"],
-            errors="coerce"
-        )
-
-        df["latitude"] = pd.to_numeric(
-            df["latitude"],
-            errors="coerce"
-        )
-
-        df = df.dropna(
-            subset=[
-                "longitude",
-                "latitude",
-                "ndvi_mean"
-            ]
-        )
-
-        return df.reset_index(
-            drop=True
-        )
+        return df
 
     except Exception as e:
 
         print(
-            f"[AI FALLBACK ERROR]: {e}"
+            f"[FALLBACK ERROR] {e}"
         )
 
         return pd.DataFrame()
 
 
 # =============================================================================
-# 13. HÀM DEMO CHUỖI THỜI GIAN
+# 10. DEMO TIME SERIES
 # =============================================================================
 
 def generate_ndvi_predictions():
-    """
-    Hàm demo cho biểu đồ nếu cần.
-
-    Không ảnh hưởng đến inference không gian.
-    """
 
     np.random.seed(42)
 
@@ -1166,7 +1182,6 @@ def generate_ndvi_predictions():
         future_dates,
         predicted_ndvi
     )
-
 
 # import os
 # import numpy as np
