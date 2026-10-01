@@ -7,6 +7,18 @@ from PIL import Image
 import folium
 from folium.raster_layers import ImageOverlay
 
+NDVI_VMIN, NDVI_VMAX = -0.10, 0.70
+NDVI_STOPS = [
+    (-0.10, "#2b83ba"), (0.00, "#2b83ba"), (0.04, "#a50026"), (0.12, "#d73027"),
+    (0.20, "#f46d43"), (0.26, "#fdae61"), (0.32, "#fee08b"), (0.40, "#d9ef8b"),
+    (0.48, "#91cf60"), (0.56, "#1a9850"), (0.70, "#006837"),
+]
+
+def get_ndvi_cmap():
+    return mcolors.LinearSegmentedColormap.from_list(
+        "NDVI_HCM", [((v - NDVI_VMIN) / (NDVI_VMAX - NDVI_VMIN), c) for v, c in NDVI_STOPS]
+    )
+
 
 def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     """
@@ -74,36 +86,39 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     # Nông nghiệp/Cây xanh trung bình (0.28 -> 0.45): Xanh lá mạ / Xanh lá nhạt
     # Rừng/Cây xanh rậm rạp (> 0.45): Xanh lá đậm
     
-    cdict = {
-        'red':   ((0.0, 0.17, 0.17),  # Nước (Blue)
-                  (0.2, 0.84, 0.84),  # Đô thị (Red)
-                  (0.35, 0.99, 0.99), # Đất trống (Orange)
-                  (0.5, 0.65, 0.65),  # Thực vật nhẹ (Light Green)
-                  (0.7, 0.10, 0.10),  # Thực vật đậm (Green)
-                  (1.0, 0.00, 0.00)), # Rừng rậm (Dark Green)
+    # cdict = {
+    #     'red':   ((0.0, 0.17, 0.17),  # Nước (Blue)
+    #               (0.2, 0.84, 0.84),  # Đô thị (Red)
+    #               (0.35, 0.99, 0.99), # Đất trống (Orange)
+    #               (0.5, 0.65, 0.65),  # Thực vật nhẹ (Light Green)
+    #               (0.7, 0.10, 0.10),  # Thực vật đậm (Green)
+    #               (1.0, 0.00, 0.00)), # Rừng rậm (Dark Green)
 
-        'green': ((0.0, 0.51, 0.51),
-                  (0.2, 0.10, 0.10),
-                  (0.35, 0.68, 0.68),
-                  (0.5, 0.85, 0.85),
-                  (0.7, 0.59, 0.59),
-                  (1.0, 0.41, 0.41)),
+    #     'green': ((0.0, 0.51, 0.51),
+    #               (0.2, 0.10, 0.10),
+    #               (0.35, 0.68, 0.68),
+    #               (0.5, 0.85, 0.85),
+    #               (0.7, 0.59, 0.59),
+    #               (1.0, 0.41, 0.41)),
 
-        'blue':  ((0.0, 0.73, 0.73),
-                  (0.2, 0.11, 0.11),
-                  (0.35, 0.38, 0.38),
-                  (0.5, 0.41, 0.41),
-                  (0.7, 0.31, 0.31),
-                  (1.0, 0.22, 0.22))
-    }
+    #     'blue':  ((0.0, 0.73, 0.73),
+    #               (0.2, 0.11, 0.11),
+    #               (0.35, 0.38, 0.38),
+    #               (0.5, 0.41, 0.41),
+    #               (0.7, 0.31, 0.31),
+    #               (1.0, 0.22, 0.22))
+    # }
     
-    cmap = mcolors.LinearSegmentedColormap('ArcGIS_NDVI', cdict)
-    norm = mcolors.Normalize(vmin=-0.1, vmax=0.65)
+    # cmap = mcolors.LinearSegmentedColormap('ArcGIS_NDVI', cdict)
+    # norm = mcolors.Normalize(vmin=-0.1, vmax=0.65)
+
+    cmap = get_ndvi_cmap()
+    norm = mcolors.Normalize(vmin=NDVI_VMIN, vmax=NDVI_VMAX)
 
     rgba_img = cmap(norm(grid_ndvi_smooth))
 
     # Giữ nguyên độ hiển thị cho tất cả các vùng (Bao gồm Nước & Đô thị bê tông) 🏢🌊
-    alpha_channel = np.ones_like(grid_ndvi_smooth) * 0.85
+    alpha_channel = np.ones_like(grid_ndvi_smooth) * 1.0 #0.85
 
     try:
         from utils.data_loader import load_local_shapefile
