@@ -98,7 +98,7 @@ def load_ndvi_data_with_ai_fallback(year: int, month: int, min_valid_rows: int =
         # Nếu CSDL trống HOẶC số dòng hợp lệ < 20.000 -> Chạy AI ONNX
         st.info(f"🤖 Đang tiến hành chạy mô hình AI (.onnx) suy luận không gian cho tháng {month}/{year}...")
         df_predicted = run_onnx_inference_for_grid(year, month)
-        print("--- KẾT QUẢ DỰ ĐOÁN CỦA AI ---")
+        print("--- KẾT QUẢ DỰ ĐOÁN CỦA Model AI ---")
         print(df_predicted["ndvi_mean"].describe())
         return df_predicted, True  # True = Dữ liệu do AI suy luận
 
