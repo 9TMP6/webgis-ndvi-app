@@ -67,35 +67,68 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
     # 3. 🪄 BÍ KÍP ARCGIS: Dùng Gaussian Filter làm mịn dải ranh giới màu (sigma = 1.2 -> 1.5)
     grid_ndvi_smooth = gaussian_filter(grid_ndvi, sigma=1.3)
 
-    # 4. Bảng màu gradient 10 điểm mượt như dải màu RdYlGn chuyên dụng của ArcGIS
-    colors = [
-        "#a50026", "#d73027", "#f46d43", "#fdae61", 
-        "#fee08b", "#d9ef8b", "#a6d96a", "#66bd63", 
-        "#1a9850", "#006837"
-    ]
-    cmap = mcolors.LinearSegmentedColormap.from_list("arcgis_smooth_ndvi", colors)
-    vmin_val = max(float(ndvis.min()), 0.05)
-    vmax_val = min(float(ndvis.max()), 0.80)
-    # norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
-    norm = mcolors.Normalize(vmin=vmin_val, vmax=vmax_val)
+    # # 4. Bảng màu gradient 10 điểm mượt như dải màu RdYlGn chuyên dụng của ArcGIS
+    # colors = [
+    #     "#a50026", "#d73027", "#f46d43", "#fdae61", 
+    #     "#fee08b", "#d9ef8b", "#a6d96a", "#66bd63", 
+    #     "#1a9850", "#006837"
+    # ]
+    # cmap = mcolors.LinearSegmentedColormap.from_list("arcgis_smooth_ndvi", colors)
+    # vmin_val = max(float(ndvis.min()), 0.05)
+    # vmax_val = min(float(ndvis.max()), 0.80)
+    # # norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
+    # norm = mcolors.Normalize(vmin=vmin_val, vmax=vmax_val)
+    # rgba_img = cmap(norm(grid_ndvi_smooth))
+
+    # # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
+    # alpha_channel = np.ones_like(grid_ndvi_smooth)
+    # alpha_channel[grid_ndvi_smooth < 0.1] = 0.0
+
+
+    # try:
+    #     from utils.data_loader import load_local_shapefile
+    #     gdf_shape = load_local_shapefile()
+    #     if gdf_shape is not None and not gdf_shape.empty:
+    #         # Chuyển về hệ tọa độ chuẩn WGS84 nếu cần
+    #         if gdf_shape.crs and str(gdf_shape.crs).upper() != "EPSG:4326":
+    #             gdf_shape = gdf_shape.to_crs(epsg=4326)
+            
+    #         geom_union = gdf_shape.unary_union
+
+    #         # Kiểm tra pixel nằm trong ranh giới Polygon
+    #         try:
+    #             from shapely import contains_xy
+    #             inside_mask = contains_xy(geom_union, grid_lon_mesh.ravel(), grid_lat_mesh.ravel()).reshape(grid_lon_mesh.shape)
+    #         except ImportError:
+    #             from shapely.vectorized import contains
+    #             inside_mask = contains(geom_union, grid_lon_mesh, grid_lat_mesh)
+
+    #         # Làm trong suốt hoàn toàn các ô ngoài ranh giới
+    #         alpha_channel[~inside_mask] = 0.0
+    # except Exception as e:
+    #     print(f"⚠️ Không thể cắt theo GeoJSON: {e}")
+
+    # 4. Bảng màu NDVI 5 mức chuẩn viễn thám 🌈
+    colors = ['#2b83ba', '#d7191c', '#fdae61', '#a6d96a', '#1a9641']
+    bounds = [-1.0, 0.0, 0.18, 0.30, 0.45, 1.0]
+    
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
     rgba_img = cmap(norm(grid_ndvi_smooth))
 
-    # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
+    # Giữ nguyên độ hiển thị cho tất cả các vùng (Bao gồm Nước & Đô thị bê tông) 🏢🌊
     alpha_channel = np.ones_like(grid_ndvi_smooth)
-    alpha_channel[grid_ndvi_smooth < 0.1] = 0.0
-
 
     try:
         from utils.data_loader import load_local_shapefile
         gdf_shape = load_local_shapefile()
         if gdf_shape is not None and not gdf_shape.empty:
-            # Chuyển về hệ tọa độ chuẩn WGS84 nếu cần
             if gdf_shape.crs and str(gdf_shape.crs).upper() != "EPSG:4326":
                 gdf_shape = gdf_shape.to_crs(epsg=4326)
             
             geom_union = gdf_shape.unary_union
 
-            # Kiểm tra pixel nằm trong ranh giới Polygon
             try:
                 from shapely import contains_xy
                 inside_mask = contains_xy(geom_union, grid_lon_mesh.ravel(), grid_lat_mesh.ravel()).reshape(grid_lon_mesh.shape)
@@ -103,7 +136,7 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
                 from shapely.vectorized import contains
                 inside_mask = contains(geom_union, grid_lon_mesh, grid_lat_mesh)
 
-            # Làm trong suốt hoàn toàn các ô ngoài ranh giới
+            # Chỉ làm trong suốt vùng nằm ngoài ranh giới TP.HCM 🗺️
             alpha_channel[~inside_mask] = 0.0
     except Exception as e:
         print(f"⚠️ Không thể cắt theo GeoJSON: {e}")
