@@ -74,8 +74,10 @@ def generate_ndvi_raster(df: pd.DataFrame, target_res_meters: int = 10):
         "#1a9850", "#006837"
     ]
     cmap = mcolors.LinearSegmentedColormap.from_list("arcgis_smooth_ndvi", colors)
-
-    norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
+    vmin_val = max(float(ndvis.min()), 0.05)
+    vmax_val = min(float(ndvis.max()), 0.80)
+    # norm = mcolors.Normalize(vmin=0.08, vmax=0.75)
+    norm = mcolors.Normalize(vmin=vmin_val, vmax=vmax_val)
     rgba_img = cmap(norm(grid_ndvi_smooth))
 
     # Alpha Masking: Làm trong suốt hoàn toàn vùng không phải cây trồng (NDVI < 0.1)
