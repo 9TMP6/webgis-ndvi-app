@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 def generate_ndvi_predictions():
-    """Giả lập hoặc chạy mô hình AI (LSTM/GRU) dự báo NDVI cho biểu đồ chuỗi thời gian"""
+    """Giả lập hoặc chạy mô hình AI (LSTM/GRU) dự báo NDVI cho biểu đồ chuỗi thời gian 📈"""
     np.random.seed(42)
     dates = pd.date_range(start="2017-01-01", end="2026-09-01", freq="MS")
     actual_ndvi = 0.5 + 0.2 * np.sin(np.linspace(0, 20, len(dates))) + np.random.normal(0, 0.03, len(dates))
@@ -15,11 +15,12 @@ def generate_ndvi_predictions():
     
     return dates, actual_ndvi, future_dates, predicted_ndvi
 
-def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
+def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 12) -> pd.DataFrame:
     """
-    1. Lấy dữ liệu 12 tháng lịch sử của toàn bộ grid và gom thành mảng Batch.
-    2. Đảm bảo khớp chuẩn trật tự grid và thời gian.
-    3. Chạy suy luận ONNX theo dạng Batch chuẩn xác 100%.
+    1. Lấy danh sách toàn bộ ô lưới và LẤY MẪU RẢI RÁC (Spatial Sampling) theo sample_step 🎯.
+    2. Truy vấn 12 tháng lịch sử CHỈ cho các ô đại diện (giảm 90% tải CSDL & RAM) ⚡.
+    3. Chạy suy luận ONNX theo dạng Batch chuẩn xác cho ~1.500 - 2.000 ô 🧠.
+    4. Trả về DataFrame điểm đại diện để Web (map_utils) tự lan tỏa màu 🎨.
     """
     from utils.data_loader import get_db_engine
 
@@ -34,46 +35,57 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         
         engine = get_db_engine()
         
-        # 1. Lấy danh sách các grid cơ sở và sắp xếp theo grid_id để đảm bảo đồng nhất thứ tự
+        # 1. Lấy toàn bộ danh sách grid cơ sở để làm khung lấy mẫu 🗄️
         base_grid_query = """
             SELECT DISTINCT grid_id, longitude, latitude 
             FROM public.ndvi_records 
             WHERE year = 2020 AND month = 11
             ORDER BY grid_id
         """
-        df_grids = pd.read_sql(base_grid_query, engine)
+        df_grids_all = pd.read_sql(base_grid_query, engine)
         
-        if df_grids.empty:
+        if df_grids_all.empty:
             return generate_fallback_grid_data(year, month)
 
-        # 2. Tính mốc thời gian 12 tháng ngược về trước
+        # 🎯 2. CHIẾN LƯỢC LẤY MẪU RẢI RÁC (SPATIAL SAMPLING)
+        # sample_step = 12 nghĩa là cứ 12 ô sẽ nhặt 1 ô đại diện (~1.800 - 2.000 ô cho cả tỉnh)
+        df_grids = df_grids_all.iloc[::sample_step].reset_index(drop=True)
+        sampled_grid_ids = tuple(df_grids['grid_id'].tolist())
+
+        if not sampled_grid_ids:
+            return pd.DataFrame()
+
+        # 3. Tính mốc thời gian 12 tháng ngược về trước 📅
         target_date = pd.Timestamp(year=year, month=month, day=1)
         start_history_date = target_date - pd.DateOffset(months=12)
         start_year, start_month = start_history_date.year, start_history_date.month
 
-        # Truy vấn lịch sử 12 tháng
+        # 4. Truy vấn lịch sử CHỈ CỦA CÁC Ô ĐẠI DIỆN (Lọc ngay từ SQL để tối ưu đường truyền) 🚀
+        grid_filter_str = f"= {sampled_grid_ids[0]}" if len(sampled_grid_ids) == 1 else f"IN {sampled_grid_ids}"
+        
         history_query = f"""
             SELECT grid_id, year, month, ndvi_mean 
             FROM public.ndvi_records 
-            WHERE (year > {start_year} OR (year = {start_year} AND month >= {start_month}))
-              AND (year < {year} OR (year = {year} AND month < {month}))
+            WHERE grid_id {grid_filter_str}
+              AND ((year > {start_year} OR (year = {start_year} AND month >= {start_month}))
+              AND (year < {year} OR (year = {year} AND month < {month})))
             ORDER BY grid_id, year, month
         """
         df_history = pd.read_sql(history_query, engine)
 
         if df_history.empty:
-            st.warning("⚠️ Không tìm thấy dữ liệu lịch sử để dự báo!")
+            st.warning("⚠️ Không tìm thấy dữ liệu lịch sử cho các ô đại diện!")
             return pd.DataFrame()
 
-        # 3. Lọc chính xác các grid có ĐỦ đúng 12 tháng lịch sử
+        # 5. Lọc chính xác các grid đại diện có ĐỦ đúng 12 tháng lịch sử 🔍
         counts = df_history.groupby('grid_id').size()
         valid_grids = counts[counts >= 12].index
         
         if len(valid_grids) == 0:
-            st.warning("⚠️ Không có grid nào đủ 12 tháng lịch sử liên tục để chạy mô hình AI.")
+            st.warning("⚠️ Không có ô đại diện nào đủ 12 tháng lịch sử liên tục để chạy AI.")
             return pd.DataFrame()
 
-        # Chỉ giữ lại lịch sử của các valid_grids và sắp xếp chuẩn trật tự
+        # Chỉ giữ lại lịch sử của valid_grids và sắp xếp chuẩn trật tự
         df_valid = df_history[df_history['grid_id'].isin(valid_grids)].sort_values(['grid_id', 'year', 'month'])
         
         # Lọc danh sách grid khớp hoàn toàn với thứ tự của df_valid
@@ -82,16 +94,15 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         # Đảm bảo shape đầu vào đúng chuẩn ma trận Batch [N, 12, 1]
         values_matrix = df_valid['ndvi_mean'].values.reshape(-1, 12, 1).astype(np.float32)
 
-        # 🚀 Chạy ONNX Batch Inference
+        # 🚀 6. Chạy ONNX Batch Inference cho duy nhất ~1.500 - 2.000 ô đại diện
         outputs = ort_session.run(None, {input_name: values_matrix})
         preds = outputs[0]  # Shape: [Batch_Size, 1] hoặc [Batch_Size]
-        #st.info(f"📊 Debug ONNX Output -> Min: {preds.min():.4f} | Max: {preds.max():.4f} | Mean: {preds.mean():.4f}")
-        # 4. Xử lý kết quả trả về an toàn tuyệt đối
+
+        # 7. Xử lý đóng gói kết quả trả về 📦
         target_date_str = target_date.strftime("%Y-%m-%d")
         predicted_rows = []
 
         for i, row in df_grids_filtered.iterrows():
-            # Trích xuất giá trị an toàn từ mảng dự đoán bất kể shape thế nào
             raw_p = preds[i]
             pred_val = float(raw_p.item() if hasattr(raw_p, "item") else (raw_p[0] if len(raw_p) > 0 else raw_p))
             
@@ -112,7 +123,7 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
 
         df_result = pd.DataFrame(predicted_rows)
         
-        # 🛡️ Vệ sinh dữ liệu đầu ra: Ép kiểu số và loại bỏ NaN để chống lỗi lệch góc bản đồ
+        # 🛡️️ Vệ sinh dữ liệu đầu ra: Ép kiểu số và loại bỏ NaN
         df_result['longitude'] = pd.to_numeric(df_result['longitude'], errors='coerce')
         df_result['latitude'] = pd.to_numeric(df_result['latitude'], errors='coerce')
         df_result = df_result.dropna(subset=['longitude', 'latitude', 'ndvi_mean'])
@@ -124,7 +135,7 @@ def run_onnx_inference_for_grid(year: int, month: int) -> pd.DataFrame:
         return generate_fallback_grid_data(year, month)
 
 def generate_fallback_grid_data(year, month):
-    """Hàm dự phòng tạo lưới tọa độ giả lập khi không tìm thấy model .onnx"""
+    """Hàm dự phòng tạo lưới tọa độ giả lập khi không tìm thấy model .onnx 🛠️"""
     from utils.data_loader import get_db_engine
     
     engine = get_db_engine()
