@@ -119,20 +119,21 @@ def run_onnx_inference_for_grid(
     outputs = ort_session.run(None, {input_name: values_matrix})
     raw_preds = outputs[0].flatten()  # Mảng 1D chứa toàn bộ kết quả dự đoán
 
-    # 🪄 7. BỘ GIÃN DẢI MÀU TỰ ĐỘNG (STRETCHING & SCALER FIX) 🎨
-    # Giúp phục hồi độ tương phản NDVI nếu AI dự đoán dải giá trị bị nén phẳng (quá hẹp)
-    p_min, p_max = raw_preds.min(), raw_preds.max()
+    # 🪄 7. BỘ GIÃN DẢI MÀU TỰ ĐỘNG THEO PERCENTILE & STD (PHỤC HỒI TƯƠNG PHẢN ĐỘ THỊ - RỪNG) 🎨
+    # Lấy bách phân vị 2% và 98% để loại bỏ nhiễu Outlier min/max
+    q_low, q_high = np.percentile(raw_preds, 2), np.percentile(raw_preds, 98)
+    std_val = raw_preds.std()
 
-    # Nếu dải dự đoán bị co hẹp (chênh lệch max - min < 0.25), tiến hành tái cấu trúc dải NDVI chuẩn [0.12, 0.68]
-    if (p_max - p_min) < 0.25 and (p_max - p_min) > 0:
-      # Min-Max Scaling đưa về dải chuẩn tương phản của TP.HCM
-      target_ndvi_min, target_ndvi_max = 0.12, 0.68
-      scaled_preds = target_ndvi_min + (raw_preds - p_min) * (
-          target_ndvi_max - target_ndvi_min
-      ) / (p_max - p_min)
+    # Nếu độ lệch chuẩn hẹp (std < 0.10) hoặc dải giá trị IQR bị nén (< 0.25)
+    if std_val < 0.10 or (q_high - q_low) < 0.25:
+        # Min-Max Scaling đưa dải bị nén về dải NDVI chuẩn tương phản của TP.HCM [0.10, 0.65]
+        target_ndvi_min, target_ndvi_max = 0.10, 0.65
+        scaled_preds = target_ndvi_min + (raw_preds - q_low) * (
+            target_ndvi_max - target_ndvi_min
+        ) / (q_high - q_low + 1e-6)
+        scaled_preds = np.clip(scaled_preds, 0.05, 0.75)
     else:
-      scaled_preds = np.clip(raw_preds, 0.05, 0.85)
-
+        scaled_preds = np.clip(raw_preds, 0.05, 0.85)
     # 8. Đóng gói kết quả 📦
     target_date_str = target_date.strftime("%Y-%m-%d")
     predicted_rows = []
