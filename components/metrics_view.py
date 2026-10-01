@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
+from utils.map_utils import NDVI_STOPS, NDVI_VMIN, NDVI_VMAX
 
 def render_metrics(df=None):
     st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #94A3B8;'>📈 CHỈ SỐ VÙNG</p>", unsafe_allow_html=True)
@@ -38,18 +39,24 @@ def render_metrics(df=None):
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
     st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
 
-    # 4. Chú giải dải màu chuẩn viễn thám 🎨
-    st.markdown("""
+    span = NDVI_VMAX - NDVI_VMIN
+    grad = ", ".join(f"{c} {(v - NDVI_VMIN) / span * 100:.0f}%" for v, c in NDVI_STOPS)
+    ticks = "".join(
+        f"<span style='position:absolute;left:{(v - NDVI_VMIN) / span * 100:.1f}%;transform:translateX(-50%);'>{v}</span>"
+        for v in (0, 0.2, 0.4, 0.6)
+    )
+    st.markdown(f"""
         <div class="legend-panel">
             <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #38BDF8;">Chú giải chỉ số NDVI</div>
-            <div class="legend-item"><span class="color-box" style="background: #2b83ba;"></span> < 0.0 (Sông hồ, mặt nước) 🌊</div>
-            <div class="legend-item"><span class="color-box" style="background: #d7191c;"></span> 0.00 - 0.18 (Đô thị, bê tông) 🏢</div>
-            <div class="legend-item"><span class="color-box" style="background: #fdae61;"></span> 0.18 - 0.30 (Đất trống, nhà thưa) 🏗️</div>
-            <div class="legend-item"><span class="color-box" style="background: #a6d96a;"></span> 0.30 - 0.45 (Cây xanh đô thị) 🍃</div>
-            <div class="legend-item"><span class="color-box" style="background: #1a9641;"></span> ≥ 0.45 (Rừng, cây trồng rậm) 🌳</div>
+            <div style="height:12px;border-radius:3px;background:linear-gradient(to right,{grad});"></div>
+            <div style="position:relative;height:14px;font-size:0.65rem;color:#94A3B8;">{ticks}</div>
+            <div class="legend-item"><span class="color-box" style="background:#2b83ba;"></span> &lt; 0.0 (Sông hồ, mặt nước) 🌊</div>
+            <div class="legend-item"><span class="color-box" style="background:#d73027;"></span> 0.00 - 0.20 (Đô thị, bê tông) 🏢</div>
+            <div class="legend-item"><span class="color-box" style="background:#fdae61;"></span> 0.20 - 0.32 (Đất trống, nhà thưa) 🏗️</div>
+            <div class="legend-item"><span class="color-box" style="background:#91cf60;"></span> 0.32 - 0.48 (Cây xanh đô thị) 🍃</div>
+            <div class="legend-item"><span class="color-box" style="background:#1a9850;"></span> ≥ 0.48 (Rừng, cây trồng rậm) 🌳</div>
         </div>
     """, unsafe_allow_html=True)
-
 def render_csv_export_button(df_result: pd.DataFrame, selected_date: str):
     """
     Tạo nút xuất file CSV chuẩn UTF-8 tương thích tốt với Excel 📥
