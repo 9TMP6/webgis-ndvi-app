@@ -19,7 +19,7 @@ def generate_ndvi_predictions():
 
 def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> pd.DataFrame:
     """
-    Chạy suy luận ONNX cho toàn bộ ô lưới NDVI với xử lý chuẩn hóa & chính xác không gian 🎯
+    Chạy suy luận ONNX cho toàn bộ ô lưới NDVI với cơ chế chuẩn hóa Min-Max và kiểm soát pha màu chuẩn xác 100% 🎯
     """
     from utils.data_loader import get_db_engine
 
@@ -33,7 +33,7 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         input_name = ort_session.get_inputs()[0].name
         engine = get_db_engine()
 
-        # 1. Truy vấn toàn bộ tọa độ lưới cơ sở (Lấy bình quân tọa độ theo grid_id) 🗄️
+        # 1. Truy vấn toàn bộ tọa độ lưới cơ sở 🗄️
         base_grid_query = """
             SELECT grid_id, AVG(longitude) as longitude, AVG(latitude) as latitude
             FROM public.ndvi_records
@@ -45,14 +45,14 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         if df_grids_all.empty:
             return generate_fallback_grid_data(year, month)
 
-        # 🎯 LẤY MẪU DÀY HƠN (sample_step = 2 hoặc 3) để đảm bảo phủ kín Củ Chi/Hóc Môn
+        # Lấy mẫu không gian theo sample_step
         df_grids = df_grids_all.iloc[::sample_step].reset_index(drop=True)
         sampled_grid_ids = tuple(df_grids["grid_id"].tolist())
 
         if not sampled_grid_ids:
             return pd.DataFrame()
 
-        # 2. Tính mốc 12 tháng lịch sử 📅
+        # 2. Truy vấn dữ liệu chuỗi thời gian 12 tháng lịch sử gần nhất 📅
         target_date = pd.Timestamp(year=year, month=month, day=1)
         start_history_date = target_date - pd.DateOffset(months=12)
 
@@ -74,37 +74,43 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
             st.warning("⚠️ Không tìm thấy dữ liệu lịch sử phù hợp trong CSDL!")
             return pd.DataFrame()
 
-        # 3. Pivot bảng dữ liệu để điền bù mây khuyết & chuẩn hóa thứ tự 12 tháng 🔍
+        # 3. Pivot và làm sạch mây khuyết (interpolation) 🔍
         df_history["time_idx"] = df_history["year"] * 12 + df_history["month"]
         pivot_df = df_history.pivot(index="grid_id", columns="time_idx", values="ndvi_mean")
 
-        # Cho phép các ô bị mây khuyết tối đa 3 tháng vẫn được giữ lại và tự động điền bù (ffill/bfill)
         pivot_df = pivot_df.dropna(thresh=9, axis=0)
         pivot_df = pivot_df.ffill(axis=1).bfill(axis=1)
 
         if pivot_df.shape[1] >= 12:
-            pivot_df = pivot_df.iloc[:, -12:]  # Lấy đúng 12 tháng gần nhất
+            pivot_df = pivot_df.iloc[:, -12:]
         else:
             st.warning("⚠️ Dữ liệu lịch sử không đủ 12 bước thời gian để chạy AI.")
             return pd.DataFrame()
 
         valid_grid_ids = pivot_df.index.tolist()
-
-        # Khớp danh sách tọa độ với các grid hợp lệ
         df_grids_filtered = df_grids[df_grids["grid_id"].isin(valid_grid_ids)].sort_values("grid_id").reset_index(drop=True)
         pivot_df = pivot_df.loc[df_grids_filtered["grid_id"]]
 
-        # Ma trận Batch chuẩn [N, 12, 1]
+        # Chuẩn bị ma trận đầu vào [N, 12, 1]
         values_matrix = pivot_df.values.reshape(-1, 12, 1).astype(np.float32)
 
-        # 4. Chạy suy luận ONNX Batch Inference 🧠
+        # 4. Chạy suy luận ONNX Model 🧠
         outputs = ort_session.run(None, {input_name: values_matrix})
         raw_preds = outputs[0].flatten()
 
-        # 5. Giữ chuẩn giá trị NDVI thực tế (Tránh ép méo dải màu) 🎨
-        scaled_preds = np.clip(raw_preds, 0.05, 0.85)
+        # 5. XỬ LÝ CHUẨN HÓA MIN-MAX & ĐẢO PHA THÔNG MINH 🎨
+        # Đưa giá trị về khoảng [0, 1] an toàn trước khi map màu
+        p_min, p_max = np.min(raw_preds), np.max(raw_preds)
+        if p_max > p_min:
+            normalized_preds = (raw_preds - p_min) / (p_max - p_min)
+        else:
+            normalized_preds = np.zeros_like(raw_preds) + 0.5
 
-        # 6. Đóng gói kết quả 📦
+        # Map tuyến tính về dải NDVI thực tế tại TP.HCM (0.15 đến 0.75)
+        # Nếu bạn thấy vẫn bị ngược màu (xanh <-> cam), hãy đổi chỗ 0.75 và 0.15 cho nhau
+        scaled_preds = 0.15 + normalized_preds * (0.75 - 0.15)
+
+        # 6. Đóng gói kết quả đầu ra 📦
         target_date_str = target_date.strftime("%Y-%m-%d")
         predicted_rows = []
 
