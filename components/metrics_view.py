@@ -38,13 +38,15 @@ def render_metrics(df=None):
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
     st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
 
-    # 4. Chú giải
+    # 4. Chú giải dải màu chuẩn viễn thám 🎨
     st.markdown("""
         <div class="legend-panel">
             <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #38BDF8;">Chú giải chỉ số NDVI</div>
-            <div class="legend-item"><span class="color-box" style="background: #d7191c;"></span> -1.0 - 0.0 (Nước / Đất)</div>
-            <div class="legend-item"><span class="color-box" style="background: #ffffbf;"></span> 0.0 - 0.3 (Thực vật thưa)</div>
-            <div class="legend-item"><span class="color-box" style="background: #1a9641;"></span> 0.3 - 1.0 (Thảm thực vật dày)</div>
+            <div class="legend-item"><span class="color-box" style="background: #2b83ba;"></span> < 0.0 (Sông hồ, mặt nước) 🌊</div>
+            <div class="legend-item"><span class="color-box" style="background: #d7191c;"></span> 0.00 - 0.18 (Đô thị, bê tông) 🏢</div>
+            <div class="legend-item"><span class="color-box" style="background: #fdae61;"></span> 0.18 - 0.30 (Đất trống, nhà thưa) 🏗️</div>
+            <div class="legend-item"><span class="color-box" style="background: #a6d96a;"></span> 0.30 - 0.45 (Cây xanh đô thị) 🍃</div>
+            <div class="legend-item"><span class="color-box" style="background: #1a9641;"></span> ≥ 0.45 (Rừng, cây trồng rậm) 🌳</div>
         </div>
     """, unsafe_allow_html=True)
 
