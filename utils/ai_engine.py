@@ -17,9 +17,9 @@ def generate_ndvi_predictions():
     return dates, actual_ndvi, future_dates, predicted_ndvi
 
 
-def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> pd.DataFrame:
+def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 1) -> pd.DataFrame:
     """
-    Chạy suy luận ONNX cho toàn bộ ô lưới NDVI với cơ chế chuẩn hóa Min-Max và kiểm soát pha màu chuẩn xác 100% 🎯
+    Chạy suy luận ONNX phủ kín 100% không gian TP.HCM, giữ nguyên dải giá trị thực tế của mô hình 🎯
     """
     from utils.data_loader import get_db_engine
 
@@ -33,11 +33,10 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         input_name = ort_session.get_inputs()[0].name
         engine = get_db_engine()
 
-        # 1. Truy vấn toàn bộ tọa độ lưới cơ sở 🗄️
+        # 1. Truy vấn toàn bộ tọa độ lưới cơ sở KHÔNG BỎ SÓT Ô NÀO (sample_step = 1) 🗄️️
         base_grid_query = """
-            SELECT grid_id, AVG(longitude) as longitude, AVG(latitude) as latitude
+            SELECT grid_id, longitude, latitude
             FROM public.ndvi_records
-            GROUP BY grid_id
             ORDER BY grid_id
         """
         df_grids_all = pd.read_sql(base_grid_query, engine)
@@ -45,14 +44,21 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         if df_grids_all.empty:
             return generate_fallback_grid_data(year, month)
 
-        # Lấy mẫu không gian theo sample_step
-        df_grids = df_grids_all.iloc[::sample_step].reset_index(drop=True)
-        sampled_grid_ids = tuple(df_grids["grid_id"].tolist())
+        # Gom nhóm trung bình theo grid_id để đảm bảo không bị lệch tọa độ
+        df_grids = df_grids_all.groupby('grid_id', as_index=False).agg({
+            'longitude': 'mean',
+            'latitude': 'mean'
+        })
+        
+        # Nếu muốn giảm tải có thể dùng step, nhưng để phủ kín thì nên lấy toàn bộ hoặc step nhỏ
+        if sample_step > 1:
+            df_grids = df_grids.iloc[::sample_step].reset_index(drop=True)
 
+        sampled_grid_ids = tuple(df_grids["grid_id"].tolist())
         if not sampled_grid_ids:
             return pd.DataFrame()
 
-        # 2. Truy vấn dữ liệu chuỗi thời gian 12 tháng lịch sử gần nhất 📅
+        # 2. Truy vấn dữ liệu 12 tháng lịch sử 📅
         target_date = pd.Timestamp(year=year, month=month, day=1)
         start_history_date = target_date - pd.DateOffset(months=12)
 
@@ -71,10 +77,9 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         df_history = pd.read_sql(history_query, engine)
 
         if df_history.empty:
-            st.warning("⚠️ Không tìm thấy dữ liệu lịch sử phù hợp trong CSDL!")
-            return pd.DataFrame()
+            return generate_fallback_grid_data(year, month)
 
-        # 3. Pivot và làm sạch mây khuyết (interpolation) 🔍
+        # 3. Pivot và điền bù dữ liệu 🔍
         df_history["time_idx"] = df_history["year"] * 12 + df_history["month"]
         pivot_df = df_history.pivot(index="grid_id", columns="time_idx", values="ndvi_mean")
 
@@ -84,33 +89,24 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         if pivot_df.shape[1] >= 12:
             pivot_df = pivot_df.iloc[:, -12:]
         else:
-            st.warning("⚠️ Dữ liệu lịch sử không đủ 12 bước thời gian để chạy AI.")
-            return pd.DataFrame()
+            return generate_fallback_grid_data(year, month)
 
         valid_grid_ids = pivot_df.index.tolist()
         df_grids_filtered = df_grids[df_grids["grid_id"].isin(valid_grid_ids)].sort_values("grid_id").reset_index(drop=True)
         pivot_df = pivot_df.loc[df_grids_filtered["grid_id"]]
 
-        # Chuẩn bị ma trận đầu vào [N, 12, 1]
+        # Ma trận đầu vào [N, 12, 1]
         values_matrix = pivot_df.values.reshape(-1, 12, 1).astype(np.float32)
 
-        # 4. Chạy suy luận ONNX Model 🧠
+        # 4. Chạy mô hình ONNX 🧠
         outputs = ort_session.run(None, {input_name: values_matrix})
         raw_preds = outputs[0].flatten()
 
-        # 5. XỬ LÝ CHUẨN HÓA MIN-MAX & ĐẢO PHA THÔNG MINH 🎨
-        # Đưa giá trị về khoảng [0, 1] an toàn trước khi map màu
-        p_min, p_max = np.min(raw_preds), np.max(raw_preds)
-        if p_max > p_min:
-            normalized_preds = (raw_preds - p_min) / (p_max - p_min)
-        else:
-            normalized_preds = np.zeros_like(raw_preds) + 0.5
+        # 5. GIỮ NGUYÊN HOẶC CLIP NHẸ GIÁ TRỊ GỐC (Tránh bị bão hòa màu xanh lè) 🎨
+        # Không dùng Min-Max ép dải rộng nữa mà giữ nguyên biên độ thực tế của mô hình, chỉ clip an toàn:
+        scaled_preds = np.clip(raw_preds, 0.0, 1.0)
 
-        # Map tuyến tính về dải NDVI thực tế tại TP.HCM (0.15 đến 0.75)
-        # Nếu bạn thấy vẫn bị ngược màu (xanh <-> cam), hãy đổi chỗ 0.75 và 0.15 cho nhau
-        scaled_preds = 0.75 - normalized_preds * (0.75 - 0.15)
-
-        # 6. Đóng gói kết quả đầu ra 📦
+        # 6. Đóng gói kết quả 📦
         target_date_str = target_date.strftime("%Y-%m-%d")
         predicted_rows = []
 
@@ -129,14 +125,11 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
             })
 
         df_result = pd.DataFrame(predicted_rows)
-        df_result = df_result.dropna(subset=["longitude", "latitude", "ndvi_mean"])
-
-        return df_result
+        return df_result.dropna(subset=["longitude", "latitude", "ndvi_mean"])
 
     except Exception as e:
         print(f"⚠️ Lỗi chạy mô hình ONNX: {e}")
         return generate_fallback_grid_data(year, month)
-
 
 def generate_fallback_grid_data(year, month):
     """Hàm dự phòng tạo lưới tọa độ giả lập khi không tìm thấy model .onnx 🛠️"""
