@@ -106,7 +106,8 @@ def run_onnx_inference_for_grid(year: int, month: int, sample_step: int = 2) -> 
         inverted_preds = min_val + max_val - raw_preds
 
         # 5. Giữ chuẩn giá trị NDVI thực tế (Tránh ép méo dải màu) 🎨
-        scaled_preds = np.clip(raw_preds, 0.05, 0.85)
+        # scaled_preds = np.clip(raw_preds, 0.05, 0.85)
+        scaled_preds = np.clip(inverted_preds, 0.05, 0.85)
 
         # 6. Đóng gói kết quả 📦
         target_date_str = target_date.strftime("%Y-%m-%d")
