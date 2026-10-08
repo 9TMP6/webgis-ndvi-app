@@ -71,7 +71,7 @@ def render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=None,
         folium.GeoJson(
             gdf_boundary,
             name="Ranh giới HCM-34",
-            style_function=lambda f: {'fillColor': 'transparent', 'color': '#38BDF8',
+            style_function=lambda f: {'fillColor': 'transparent', 'color': '#FFFFFF',
                                       'weight': 2.0, 'dashArray': '4, 4', 'fillOpacity': 0},
             tooltip=folium.GeoJsonTooltip(fields=[name_col], aliases=['Thông tin:']) if name_col else None,
         ).add_to(m)
@@ -82,13 +82,13 @@ def render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=None,
             # Lớp "phát sáng" bên ngoài
             folium.GeoJson(
                 target, name="Glow",
-                style_function=lambda f: {'fillOpacity': 0, 'color': '#FACC15', 'weight': 9, 'opacity': 0.25},
+                style_function=lambda f: {'fillOpacity': 0, 'color': '#D946EF', 'weight': 9, 'opacity': 0.25},
             ).add_to(m)
             # Viền sáng + tô nhẹ bên trong
             folium.GeoJson(
                 target, name="Khu vực đang chọn",
-                style_function=lambda f: {'fillColor': '#FACC15', 'fillOpacity': 0.12,
-                                          'color': '#FACC15', 'weight': 3, 'opacity': 1},
+                style_function=lambda f: {'fillColor': '#D946EF', 'fillOpacity': 0.12,
+                                          'color': '#D946EF', 'weight': 3, 'opacity': 1},
                 tooltip=folium.GeoJsonTooltip(fields=[name_col], aliases=['Khu vực:']) if name_col else None,
             ).add_to(m)
             # Tự zoom vừa khít đa giác (thay cho tọa độ/zoom nhập tay)
@@ -155,7 +155,7 @@ def render_map(lat, lng, zoom, basemap_choice, show_boundaries, df=None,
 #                 name="Ranh giới HCM-34",
 #                 style_function=lambda feature: {
 #                     'fillColor': 'transparent',
-#                     'color': '#38BDF8',
+#                     'color': '#FFFFFF',
 #                     'weight': 2.0,
 #                     'dashArray': '4, 4',
 #                     'fillOpacity': 0,
