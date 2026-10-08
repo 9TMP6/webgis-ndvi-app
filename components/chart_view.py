@@ -71,18 +71,18 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
         y=ndvi_series, 
         mode="lines+markers", 
         name="Chuỗi NDVI (12 tháng thật)", 
-        line=dict(color="#38BDF8", width=2),
+        line=dict(color="#16A34A", width=2),
         marker=dict(size=6)
     ))
 
     fig_chart.update_layout(
-        template="plotly_dark", 
-        paper_bgcolor="#151D2A", 
-        plot_bgcolor="#151D2A",
+        template="plotly_white", 
+        paper_bgcolor="#FFFFFF", 
+        plot_bgcolor="#FFFFFF",
         height=240, 
         margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(showgrid=True, gridcolor="#26334D"),
-        yaxis=dict(showgrid=True, gridcolor="#26334D", range=[-0.1, 1.0]),
+        xaxis=dict(showgrid=True, gridcolor="#E3EFE6"),
+        yaxis=dict(showgrid=True, gridcolor="#E3EFE6", range=[-0.1, 1.0]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_chart, use_container_width=True)
