@@ -42,18 +42,17 @@ def render_metrics(df=None):
     span = NDVI_VMAX - NDVI_VMIN
     grad = ", ".join(f"{c} {(v - NDVI_VMIN) / span * 100:.0f}%" for v, c in NDVI_STOPS)
     ticks = "".join(
-        f"<span style='position:absolute;left:{(v - NDVI_VMIN) / span * 100:.1f}%;transform:translateX(-50%);'>{v}</span>"
-        for v in (0, 0.2, 0.4, 0.6)
+        f"<span style='position:absolute;left:{k*25}%;transform:translateX(-{k*25}%);'>{round(NDVI_VMIN + span * k / 4, 2)}</span>"
+        for k in range(5)
     )
     st.markdown(f"""
         <div class="legend-panel">
             <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #15803D;">Chú giải chỉ số NDVI</div>
-            <div style="height:12px;border-radius:3px;background:linear-gradient(to right,{grad});"></div>
-            <div style="position:relative;height:14px;font-size:0.65rem;color:#5B7A66;">{ticks}</div>
-            <div class="legend-item"><span class="color-box" style="background:#2b83ba;"></span> &lt; 0.0 (Sông hồ, mặt nước) 🌊</div>
-            <div class="legend-item"><span class="color-box" style="background:#d73027;"></span> 0.00 - 0.18 (Đô thị, bê tông) 🏢</div>
-            <div class="legend-item"><span class="color-box" style="background:#ef6a38;"></span> 0.18 - 0.30 (Đất trống, nhà thưa) 🏗️</div>
-            <div class="legend-item"><span class="color-box" style="background:#d9ef8b;"></span> 0.30 - 0.45 (Cây xanh đô thị) 🍃</div><div class="legend-item"><span class="color-box" style="background:#1a9850;"></span> ≥ 0.48 (Rừng, cây trồng rậm) 🌳</div>
+            <div style="height:14px;border-radius:4px;background:linear-gradient(to right,{grad});"></div>
+            <div style="position:relative;height:16px;font-size:0.68rem;color:#5B7A66;margin-top:2px;">{ticks}</div>
+            <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:#3F5B49;">
+                <span>Thấp (đất trống, đô thị)</span><span>Cao (thực vật dày)</span>
+            </div>
         </div>
     """, unsafe_allow_html=True)
 def render_csv_export_button(df_result: pd.DataFrame, selected_date: str):
