@@ -10,7 +10,7 @@ from folium.raster_layers import ImageOverlay
 NDVI_PALETTE_MODE = "gee"      # "gee" = thang màu chuẩn | "arcgis" = thang cũ
 
 if NDVI_PALETTE_MODE == "gee":
-    NDVI_VMIN, NDVI_VMAX = 0.0, 0.8
+    NDVI_VMIN, NDVI_VMAX = -0.2, 1.0
     _PALETTE = ["#FF0000", "#FF7F00", "#FFFF00", "#ADFF2F", "#00FF00", "#00FFFF", "#007FFF", "#0000FF"]
     NDVI_STOPS = [(NDVI_VMIN + i * (NDVI_VMAX - NDVI_VMIN) / (len(_PALETTE) - 1), c)
                   for i, c in enumerate(_PALETTE)]
