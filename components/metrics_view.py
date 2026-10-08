@@ -4,7 +4,7 @@ import pandas as pd
 from utils.map_utils import NDVI_STOPS, NDVI_VMIN, NDVI_VMAX
 
 def render_metrics(df=None):
-    st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #94A3B8;'>📈 CHỈ SỐ VÙNG</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #5B7A66;'>📈 CHỈ SỐ VÙNG</p>", unsafe_allow_html=True)
 
     # 1. Tính toán giá trị thực tế từ Supabase DataFrame
     if df is not None and not df.empty and 'ndvi_mean' in df.columns:
@@ -23,7 +23,7 @@ def render_metrics(df=None):
 
     # 2. Hiển thị 3 Stat Box
     st.markdown(f"""
-        <div class="stat-box"><div class="stat-title">NDVI Mean</div><div class="stat-value" style="color: #38BDF8;">{ndvi_mean_val:.3f}</div></div>
+        <div class="stat-box"><div class="stat-title">NDVI Mean</div><div class="stat-value" style="color: #15803D;">{ndvi_mean_val:.3f}</div></div>
         <div class="stat-box"><div class="stat-title">NDVI Max</div><div class="stat-value" style="color: #10B981;">{ndvi_max_val:.3f}</div></div>
         <div class="stat-box"><div class="stat-title">NDVI Min</div><div class="stat-value" style="color: #EF4444;">{ndvi_min_val:.3f}</div></div>
     """, unsafe_allow_html=True)
@@ -31,13 +31,13 @@ def render_metrics(df=None):
     # 3. Biểu đồ Donut Ring động theo % độ phủ thực vật
     fig_ring = go.Figure(go.Pie(
         values=[veg_pct, 100 - veg_pct], hole=0.75, showlegend=False, hoverinfo="none", textinfo="none",
-        marker=dict(colors=["#10B981" if veg_pct >= 50 else "#F59E0B", "#1E293B"])
+        marker=dict(colors=["#10B981" if veg_pct >= 50 else "#F59E0B", "#E3EFE6"])
     ))
-    fig_ring.add_annotation(text=f"<b>{veg_pct} %</b>", x=0.5, y=0.5, font=dict(size=15, color="#FFFFFF"), showarrow=False)
+    fig_ring.add_annotation(text=f"<b>{veg_pct} %</b>", x=0.5, y=0.5, font=dict(size=15, color="#14532D"), showarrow=False)
     fig_ring.update_layout(height=120, margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
-    st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #5B7A66; font-size: 0.75rem; margin-top: -12px;'>Độ phủ thực vật</p>", unsafe_allow_html=True)
 
     span = NDVI_VMAX - NDVI_VMIN
     grad = ", ".join(f"{c} {(v - NDVI_VMIN) / span * 100:.0f}%" for v, c in NDVI_STOPS)
@@ -47,9 +47,9 @@ def render_metrics(df=None):
     )
     st.markdown(f"""
         <div class="legend-panel">
-            <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #38BDF8;">Chú giải chỉ số NDVI</div>
+            <div style="font-weight: bold; font-size: 0.75rem; margin-bottom: 6px; color: #15803D;">Chú giải chỉ số NDVI</div>
             <div style="height:12px;border-radius:3px;background:linear-gradient(to right,{grad});"></div>
-            <div style="position:relative;height:14px;font-size:0.65rem;color:#94A3B8;">{ticks}</div>
+            <div style="position:relative;height:14px;font-size:0.65rem;color:#5B7A66;">{ticks}</div>
             <div class="legend-item"><span class="color-box" style="background:#2b83ba;"></span> &lt; 0.0 (Sông hồ, mặt nước) 🌊</div>
             <div class="legend-item"><span class="color-box" style="background:#d73027;"></span> 0.00 - 0.18 (Đô thị, bê tông) 🏢</div>
             <div class="legend-item"><span class="color-box" style="background:#ef6a38;"></span> 0.18 - 0.30 (Đất trống, nhà thưa) 🏗️</div>
