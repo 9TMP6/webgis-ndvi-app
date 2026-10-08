@@ -67,32 +67,92 @@ LOCATION_DATA = {
 }
 CUSTOM_CSS = """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+
+    :root {
+        --g-900: #14532D; --g-700: #15803D; --g-600: #16A34A; --g-500: #22C55E;
+        --g-100: #DCFCE7; --g-50: #F0FDF4;
+        --card: #FFFFFF; --line: #D7E8DB; --text: #14301F; --muted: #5B7A66;
+    }
+
     html, body, [class*="css"] { font-size: 13px !important; }
-    .stApp { background-color: #0B0F17; color: #E2E8F0; }
+    .stApp, .stApp p, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp h4,
+    .stApp button, .stApp input, .stApp textarea {
+        font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+    }
+    .stApp {
+        background: linear-gradient(180deg, #EEF8F0 0%, #F8FCF9 45%, #ECF6EF 100%);
+        color: var(--text);
+    }
+    .stApp h1, .stApp h2, .stApp h3 { color: var(--g-900); }
+    .stApp hr { border-color: #CFE3D4 !important; }
+
+    /* ===== Header ===== */
     .top-header {
-        background: linear-gradient(90deg, #0F172A 0%, #1E293B 100%);
-        padding: 8px 16px; border-radius: 8px; border: 1px solid #1E293B;
+        background: linear-gradient(100deg, #15803D 0%, #16A34A 50%, #65A30D 100%);
+        padding: 10px 18px; border-radius: 14px;
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+        box-shadow: 0 6px 18px rgba(22, 101, 52, 0.22);
     }
-    .brand-title {
-        font-size: 1.1rem !important; font-weight: 800;
-        background: linear-gradient(135deg, #38BDF8 0%, #10B981 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    .brand-title { font-size: 1.15rem !important; font-weight: 800; color: #FFFFFF; letter-spacing: 0.3px; }
     .status-badge {
-        background-color: rgba(16, 185, 129, 0.15); color: #10B981;
-        padding: 2px 8px; border-radius: 12px; font-size: 0.75rem !important;
-        border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 600;
+        background: rgba(255, 255, 255, 0.20); color: #FFFFFF;
+        padding: 3px 10px; border-radius: 999px; font-size: 0.75rem !important;
+        border: 1px solid rgba(255, 255, 255, 0.45); font-weight: 600;
     }
+
     .block-container { padding-top: 3.8rem !important; padding-bottom: 0.8rem !important; padding-left: 1rem !important; padding-right: 0.3rem !important; }
-    section[data-testid="stSidebar"] { background-color: #0F172A; border-right: 1px solid #1E293B; }
+
+    /* ===== Sidebar ===== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #E9F5EC 0%, #F4FAF5 100%);
+        border-right: 1px solid var(--line);
+    }
     div[data-testid="stSidebarUserContent"] { padding-top: 3.8rem !important; }
-    .stat-box { background: #151D2A; border: 1px solid #26334D; border-radius: 6px; padding: 8px; text-align: center; margin-bottom: 8px; }
-    .stat-title { color: #94A3B8; font-size: 0.7rem !important; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }
-    .stat-value { font-size: 1.1rem !important; font-weight: 700; }
-    .legend-panel { background: #151D2A; border: 1px solid #26334D; border-radius: 6px; padding: 10px; margin-top: 10px; }
-    .legend-item { display: flex; align-items: center; font-size: 0.75rem !important; margin-bottom: 4px; color: #CBD5E1; }
-    .color-box { width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; display: inline-block; }
+    div[data-testid="stExpander"] {
+        background: #FFFFFF; border: 1px solid var(--line) !important; border-radius: 12px !important;
+        box-shadow: 0 1px 3px rgba(20, 83, 45, 0.06);
+    }
+
+    /* ===== Nút bấm ===== */
+    button[kind="primary"], button[data-testid="stBaseButton-primary"] {
+        background: linear-gradient(135deg, #16A34A 0%, #65A30D 100%) !important;
+        color: #FFFFFF !important; border: none !important; font-weight: 700 !important;
+        border-radius: 10px !important; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.30);
+        transition: transform .15s ease, filter .15s ease;
+    }
+    button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {
+        filter: brightness(1.07); transform: translateY(-1px);
+    }
+    [data-testid="stDownloadButton"] button {
+        background: #FFFFFF; color: var(--g-700); border: 1px solid #BFDCC6; border-radius: 10px;
+    }
+    [data-testid="stDownloadButton"] button:hover { background: var(--g-50); border-color: var(--g-600); color: var(--g-700); }
+
+    /* ===== Thẻ chỉ số & chú giải ===== */
+    .stat-box {
+        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        padding: 10px; text-align: center; margin-bottom: 8px;
+        box-shadow: 0 2px 8px rgba(20, 83, 45, 0.06);
+    }
+    .stat-title { color: var(--muted); font-size: 0.7rem !important; font-weight: 600; text-transform: uppercase; margin-bottom: 2px; }
+    .stat-value { font-size: 1.15rem !important; font-weight: 700; }
+    .legend-panel {
+        background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        padding: 12px; margin-top: 10px; box-shadow: 0 2px 8px rgba(20, 83, 45, 0.06);
+    }
+    .legend-item { display: flex; align-items: center; font-size: 0.75rem !important; margin-bottom: 4px; color: #3F5B49; }
+    .color-box { width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; display: inline-block; }
+
+    /* ===== Bản đồ & thông báo ===== */
+    iframe[title="streamlit_folium.st_folium"] {
+        border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(20, 83, 45, 0.12);
+    }
+    div[data-testid="stAlert"] { border-radius: 12px; }
+    div[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) {
+        background: #ECF8EF; color: var(--g-900); border: 1px solid #CBE8D3;
+    }
+
     [data-testid="stHeader"] a[href*="github"] {
         display: none !important;
     }
