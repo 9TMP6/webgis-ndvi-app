@@ -2,20 +2,19 @@
 """
 AI DEMO - dự báo NDVI trực tiếp từ CSDL, KHÔNG cần file .onnx / scaler.json.
 
-Ý tưởng (đơn giản nhưng giữ đúng cấu trúc không gian):
-    NDVI_dự_báo = NDVI_tháng_trước + phần_chênh_nhỏ
-  - Phần chênh được học bằng hồi quy Ridge (numpy thuần) từ chính lịch sử trong CSDL.
-  - Vì luôn cộng vào NDVI tháng trước nên ô đô thị (thấp) vẫn thấp, rừng (cao) vẫn cao
-    -> không thể "xanh hóa đồng loạt" như lỗi trước.
-  - Tự backtest trên 3 tháng cuối có dữ liệu. Nếu model KHÔNG thắng baseline
-    "giữ nguyên tháng trước" thì tự động dùng baseline (an toàn hơn).
+CHIẾN LƯỢC "LẤY MẪU RẢI RÁC -> DỰ BÁO -> LAN RA XUNG QUANH":
+  BƯỚC 1  Chọn SAMPLE_FRACTION (mặc định 25%) số ô, RẢI ĐỀU trên bản đồ (_scatter_sample).
+          Các ô còn lại bị loại khỏi dữ liệu ngay từ đầu, AI không nhìn thấy chúng.
+  BƯỚC 2  AI (Ridge / baseline giữ-tháng-trước) học và dự báo CHỈ trên các ô mẫu này.
+  BƯỚC 3  Giá trị dự báo của các ô mẫu được "lan" ra mọi ô còn lại bằng nội suy
+          nghịch đảo khoảng cách (IDW, _spread_to_all) -> ra đủ toàn bộ lưới.
+          Sau đó map_utils.generate_ndvi_raster tiếp tục làm mịn khi vẽ ảnh.
 
-LẤY MẪU RẢI RÁC (theo yêu cầu của cô): KHÔNG đưa hết ~28k ô vào AI. Chỉ chọn SAMPLE_FRACTION (mặc định 25%)
-số ô, rải đều trên bản đồ (hàm _scatter_sample). AI chỉ học và dự báo trên các ô này; phần còn lại được
-"loang" bằng nội suy khi vẽ bản đồ (utils/map_utils.py -> generate_ndvi_raster, scipy griddata).
+Mô hình: NDVI_dự_báo = NDVI_tháng_trước + phần_chênh_nhỏ (học bằng Ridge, numpy thuần),
+nên ô đô thị (thấp) vẫn thấp, rừng (cao) vẫn cao. Tự backtest, không thắng baseline thì dùng baseline.
 
-Có thể GẮN THÊM model ONNX: đặt 2 file vào HCM-34-Json/ (xem ONNX_PATH, SCALER_PATH).
-Khi đó app backtest cả 3 phương án (ONNX / Ridge / giữ-nguyên-tháng-trước) và tự chọn cái sai số thấp nhất.
+ONNX là TÙY CHỌN: mặc định TẮT (USE_ONNX = False). Muốn bật: đặt USE_ONNX = True và để đủ
+2 file vào HCM-34-Json/ (ONNX_PATH, SCALER_PATH). Thiếu scaler thì chỉ cảnh báo và tự bỏ qua ONNX.
 
 Hàm công khai (cùng chữ ký/cột với run_onnx_inference_for_grid cũ):
     run_demo_inference_for_grid(year, month) -> DataFrame
@@ -36,12 +35,20 @@ def _cache_data(**kw):
     return lambda f: f
 
 
+def _cache_resource(**kw):
+    if st is not None:
+        return st.cache_resource(**kw)
+    return lambda f: f
+
+
 # ---------------- Cấu hình ----------------
 WINDOW = 12               # số tháng lịch sử đưa vào
 MIN_WINDOW_VALID = 6      # ô phải có >= 6/12 tháng có dữ liệu thật
 MIN_MONTH_TARGETS = 1000  # tháng đích có < 1000 ô hợp lệ thì bỏ qua khi train
 MAX_ROWS_PER_MONTH = 8000 # lấy mẫu mỗi tháng để train nhanh, đỡ tốn RAM
-SAMPLE_FRACTION = 0.25    # CHỈ ~25% số ô (rải đều) được đưa vào AI; phần còn lại nội suy khi vẽ. 1.0 = dùng hết
+SAMPLE_FRACTION = 0.25    # CHỈ ~25% số ô (rải đều) được đưa vào AI. 1.0 = dùng hết
+SPREAD_TO_FULL_GRID = True  # True: lan giá trị dự báo ra TOÀN BỘ ô lưới (metrics/CSV/bản đồ đều đủ ô)
+IDW_K = 6                 # số ô mẫu gần nhất dùng để nội suy cho mỗi ô còn lại
 HOLDOUT_MONTHS = 3        # số tháng cuối dùng để backtest
 RIDGE_LAMBDA = 10.0
 MAX_DELTA = 0.30          # chặn mức thay đổi tối đa mỗi tháng
@@ -49,40 +56,38 @@ MAX_STEPS = 12            # tối đa dự báo nối tiếp 12 tháng
 NDVI_LO, NDVI_HI = -0.2, 1.0
 ONNX_PATH = "HCM-34-Json/lstm_ndvi_hcm_model.onnx"
 SCALER_PATH = "HCM-34-Json/scaler.json"   # {"min": ..., "max": ...} lấy từ MinMaxScaler lúc train
-USE_ONNX = False                           # False: bỏ qua ONNX, chỉ dùng Ridge/baseline
+USE_ONNX = False                          # MẶC ĐỊNH TẮT: demo chỉ dùng Ridge/baseline
 GOOD_MONTH_FRAC = 0.5     # tháng được coi là 'tốt' nếu >= 50% số ô có giá trị thật (không bị mây)
-
-
-def _cache_resource(**kw):
-    if st is not None:
-        return st.cache_resource(**kw)
-    return lambda f: f
 
 
 # ---------------- ONNX (tùy chọn) ----------------
 @_cache_resource(show_spinner=False)
 def _load_onnx():
-    """-> (session, input_name, (min, max)) hoặc None nếu không dùng/không có model."""
+    """-> (session, input_name, (min, max)) hoặc None nếu không dùng / không có / lỗi.
+    KHÔNG BAO GIỜ raise: ONNX hỏng thì demo vẫn chạy bằng Ridge."""
     import json
     import os
 
     if not USE_ONNX or not os.path.exists(ONNX_PATH):
         return None
-    if not os.path.exists(SCALER_PATH):
-        raise FileNotFoundError(
-            f"Có '{ONNX_PATH}' nhưng thiếu '{SCALER_PATH}'. Model train trên dữ liệu MinMax-scaled "
-            "nên bắt buộc phải có scaler.json."
-        )
-    import onnxruntime as ort
+    try:
+        if not os.path.exists(SCALER_PATH):
+            print(f"[ONNX] Có '{ONNX_PATH}' nhưng thiếu '{SCALER_PATH}' -> bỏ qua ONNX.")
+            return None
+        import onnxruntime as ort
 
-    with open(SCALER_PATH, "r", encoding="utf-8") as f:
-        sc = json.load(f)
-    mn, mx = float(sc["min"]), float(sc["max"])
-    if mx <= mn:
-        raise ValueError("scaler.json không hợp lệ: max phải lớn hơn min.")
-    sess = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
-    print("[ONNX] input:", sess.get_inputs()[0].shape, "| output:", sess.get_outputs()[0].shape)
-    return sess, sess.get_inputs()[0].name, (mn, mx)
+        with open(SCALER_PATH, "r", encoding="utf-8") as f:
+            sc = json.load(f)
+        mn, mx = float(sc["min"]), float(sc["max"])
+        if mx <= mn:
+            print("[ONNX] scaler.json không hợp lệ (max <= min) -> bỏ qua ONNX.")
+            return None
+        sess = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])
+        print("[ONNX] input:", sess.get_inputs()[0].shape, "| output:", sess.get_outputs()[0].shape)
+        return sess, sess.get_inputs()[0].name, (mn, mx)
+    except Exception as e:
+        print(f"[ONNX] Không nạp được model -> bỏ qua ONNX: {e}")
+        return None
 
 
 def _onnx_predict(bundle, W: np.ndarray) -> np.ndarray:
@@ -168,32 +173,62 @@ def _predict_delta(model, X: np.ndarray) -> np.ndarray:
     return np.clip(((X - mu) / sd) @ w[:-1] + w[-1], -MAX_DELTA, MAX_DELTA)
 
 
+# ---------------- BƯỚC 1: lấy mẫu rải rác ----------------
 def _scatter_sample(coords: pd.DataFrame, frac: float, seed: int = 0) -> np.ndarray:
     """Chọn ô RẢI ĐỀU: chia bản đồ thành lưới thô, mỗi ô thô bốc ngẫu nhiên 1 ô lưới.
-    Trả về mảng chỉ số vị trí (0..n-1) của các ô được chọn."""
+    Trả về mảng chỉ số vị trí (0..n-1) của các ô được chọn (xấp xỉ frac*n ô)."""
     n = len(coords)
     if frac >= 1.0 or n <= 500:
         return np.arange(n)
     lon = coords["longitude"].to_numpy()
     lat = coords["latitude"].to_numpy()
     target = max(int(n * frac), 200)
-    side = max(int(np.sqrt(target)), 10)               # số ô thô mỗi chiều
     order = np.random.default_rng(seed).permutation(n)
-    sel = order
-    for _ in range(4):                                 # chỉnh side để số ô chọn xấp xỉ target
+
+    # Ranh giới TP.HCM không vuông -> nhiều ô thô trống -> phải tăng 'side' dần tới khi đủ số ô.
+    side = max(int(np.sqrt(target)), 10)
+    best = None
+    for _ in range(8):
         ix = np.minimum(((lon - lon.min()) / (np.ptp(lon) + 1e-12) * side).astype(int), side - 1)
         iy = np.minimum(((lat - lat.min()) / (np.ptp(lat) + 1e-12) * side).astype(int), side - 1)
         key = ix * side + iy
         _, first = np.unique(key[order], return_index=True)
         sel = order[first]
-        if len(sel) >= 0.9 * target:
+        if best is None or abs(len(sel) - target) < abs(len(best) - target):
+            best = sel
+        if 0.9 * target <= len(sel) <= 1.15 * target:
             break
-        side = int(side * np.sqrt(target / max(len(sel), 1)))
-    return np.sort(sel)
+        side = max(int(side * np.sqrt(target / max(len(sel), 1))), 5)
+    return np.sort(best)
 
 
+# ---------------- BƯỚC 3: lan ra xung quanh ----------------
+def _spread_to_all(coords_all: pd.DataFrame, src_ids, src_vals: np.ndarray) -> np.ndarray:
+    """Lan giá trị dự báo của các ô mẫu ra TẤT CẢ ô trong coords_all bằng IDW (k ô mẫu gần nhất).
+    Ô mẫu giữ nguyên giá trị AI; ô khác = trung bình có trọng số 1/d^2 của các ô mẫu quanh nó."""
+    from scipy.spatial import cKDTree
+
+    lat0 = np.radians(float(coords_all["latitude"].mean()))
+    k_lon = np.cos(lat0)   # quy đổi kinh độ về cùng thang mét với vĩ độ
+
+    def xy(d):
+        return np.column_stack([d["longitude"].to_numpy() * k_lon, d["latitude"].to_numpy()])
+
+    src = coords_all.loc[src_ids]
+    k = int(min(IDW_K, len(src)))
+    tree = cKDTree(xy(src))
+    dist, nn = tree.query(xy(coords_all), k=k)
+    if k == 1:
+        dist, nn = dist[:, None], nn[:, None]
+    w = 1.0 / np.maximum(dist, 1e-9) ** 2
+    vals = (w * src_vals[nn]).sum(axis=1) / w.sum(axis=1)
+    vals[coords_all.index.get_indexer(src_ids)] = src_vals   # ô mẫu: giữ đúng giá trị AI
+    return np.clip(vals, NDVI_LO, NDVI_HI)
+
+
+# ---------------- BƯỚC 2: huấn luyện + dự báo trên ô mẫu ----------------
 def _collect_samples(M: np.ndarray, t_min: int, t_end_excl: int, good: np.ndarray):
-    """Tạo mẫu train: với mỗi tháng đích t < t_end_excl -> (t, X, delta). Chỉ dùng dữ liệu TRƯỚC t."""
+    """Tạo mẫu train: với mỗi tháng đích t < t_end_excl -> (t, X, delta, W). Chỉ dùng dữ liệu TRƯỚC t."""
     rng = np.random.default_rng(0)
     samples = []
     for col in range(WINDOW, M.shape[1]):
@@ -240,8 +275,12 @@ def _train(samples, onnx_bundle=None):
 
     maes = {}                                   # thứ tự = ưu tiên khi hòa: onnx > ridge > persistence
     if onnx_bundle is not None:
-        p = _onnx_predict(onnx_bundle, Wh)
-        maes["onnx"] = float(np.abs((p - Wh[:, -1]) - dh).mean())
+        try:
+            p = _onnx_predict(onnx_bundle, Wh)
+            maes["onnx"] = float(np.abs((p - Wh[:, -1]) - dh).mean())
+        except Exception as e:                  # ONNX sai shape/scale... -> bỏ qua, không làm sập demo
+            print(f"[ONNX] Lỗi khi backtest, bỏ qua ONNX: {e}")
+            onnx_bundle = None
     m_bt = _fit_ridge(np.vstack([s[1] for s in tr]), np.concatenate([s[2] for s in tr]))
     maes["ridge"] = float(np.abs(_predict_delta(m_bt, Xh) - dh).mean())
     maes["persistence"] = float(np.abs(dh).mean())
@@ -274,7 +313,6 @@ def _step(model, W: np.ndarray, month: int) -> np.ndarray:
     return np.clip(W[:, -1] + _predict_delta(model["ridge"], _features(W, month)), NDVI_LO, NDVI_HI)
 
 
-# ---------------- Dự báo ----------------
 def _last_known(M: np.ndarray, rows: np.ndarray, c_end: int) -> np.ndarray:
     """Với ô thiếu dữ liệu: lấy giá trị thật GẦN NHẤT (ưu tiên trước c_end, nếu không có thì sau)."""
     sub = pd.DataFrame(M[rows])
@@ -309,6 +347,7 @@ def forecast_from_history(df_hist: pd.DataFrame, year: int, month: int, onnx_bun
     if steps > MAX_STEPS:
         raise RuntimeError(f"Tháng đích cách tháng dữ liệu tốt cuối ({steps} tháng) vượt giới hạn {MAX_STEPS}.")
 
+    # --- BƯỚC 2: huấn luyện + dự báo trên các ô mẫu ---
     samples = _collect_samples(M, t_min, t_end_excl=target, good=good)   # chỉ dùng quá khứ của tháng đích
     non_causal = False
     if len(samples) < 6 and target <= t_max:
@@ -333,40 +372,54 @@ def forecast_from_history(df_hist: pd.DataFrame, year: int, month: int, onnx_bun
         pred = _step(model, W, _month_of(end + s))
         W = np.concatenate([W[:, 1:], pred[:, None]], axis=1)
 
-    # --- Ô thiếu dữ liệu -> KHÔNG bỏ, dùng giá trị thật gần nhất (giữ nguyên vùng phủ như khi xem quá khứ) ---
-    pred_all = np.empty(N, dtype=np.float64)
+    # --- Ô mẫu thiếu dữ liệu -> dùng giá trị thật gần nhất + hiệu chỉnh mùa vụ ---
+    pred_all = np.full(N, np.nan, dtype=np.float64)
     pred_all[idx] = pred
     bad = np.where(~ok)[0]
     if len(bad):
         fb = _last_known(M, bad, c_end)
-        # Hiệu chỉnh mùa vụ: cộng mức thay đổi trung bình mà model dự báo cho các ô có NDVI tương tự
         shift = pred - last_obs
         edges = np.unique(np.quantile(last_obs, np.linspace(0, 1, 11)))
         if len(edges) > 2:
             b_idx = np.clip(np.digitize(last_obs, edges[1:-1]), 0, len(edges) - 2)
-            centers = np.array([last_obs[b_idx == k].mean() for k in range(len(edges) - 1)])
-            means = np.array([shift[b_idx == k].mean() for k in range(len(edges) - 1)])
-            fb = fb + np.interp(fb, centers, means)
+            centers, means = [], []
+            for k in range(len(edges) - 1):
+                sel = b_idx == k
+                if sel.any():                       # bỏ nhóm rỗng để không sinh NaN
+                    centers.append(last_obs[sel].mean())
+                    means.append(shift[sel].mean())
+            fb = fb + np.interp(fb, np.array(centers), np.array(means))
         pred_all[bad] = np.clip(fb, NDVI_LO, NDVI_HI)
 
     corr = float(np.corrcoef(last_obs, pred)[0, 1]) if pred.std() > 0 and last_obs.std() > 0 else 1.0
+    band = report["holdout"]["mae_model"] if report["holdout"] else 0.05
+    band = float(max(band, 0.02))
+
+    # --- BƯỚC 3: lan từ các ô mẫu ra xung quanh ---
+    finite = np.isfinite(pred_all)
+    src_ids = coords.index[finite]
+    src_vals = pred_all[finite]
+    if SPREAD_TO_FULL_GRID and len(src_vals) >= 3 and len(src_vals) < total_grids:
+        out = coords_all.reset_index()
+        out["ndvi_mean"] = _spread_to_all(coords_all, src_ids, src_vals)
+    else:
+        out = coords.loc[src_ids].reset_index()
+        out["ndvi_mean"] = src_vals
+
     report.update({
-        "n_grids": int(N), "n_total": int(total_grids), "n_fallback": int(len(bad)), "steps": int(steps),
+        "n_grids": int(N), "n_total": int(total_grids), "n_out": int(len(out)),
+        "spread": bool(SPREAD_TO_FULL_GRID), "n_fallback": int(len(bad)), "steps": int(steps),
         "base_month": f"{(end - 1) // 12}-{_month_of(end):02d}",
         "base_coverage": float(valid_cnt[c_end] / N),
         "last_mean": float(last_obs.mean()), "last_std": float(last_obs.std()),
         "pred_mean": float(pred.mean()), "pred_std": float(pred.std()), "corr_vs_last": corr,
     })
 
-    band = report["holdout"]["mae_model"] if report["holdout"] else 0.05
-    band = float(max(band, 0.02))
-    out = coords.reset_index()
     out["date"] = f"{year}-{month:02d}-01"
     out["year"] = year
     out["month"] = month
-    out["ndvi_mean"] = pred_all
-    out["ndvi_min"] = np.maximum(pred_all - band, NDVI_LO)
-    out["ndvi_max"] = np.minimum(pred_all + band, NDVI_HI)
+    out["ndvi_min"] = np.maximum(out["ndvi_mean"] - band, NDVI_LO)
+    out["ndvi_max"] = np.minimum(out["ndvi_mean"] + band, NDVI_HI)
     out = out.dropna(subset=["longitude", "latitude", "ndvi_mean"])
     return out[["grid_id", "date", "year", "month", "longitude", "latitude",
                 "ndvi_mean", "ndvi_min", "ndvi_max"]], report
@@ -374,7 +427,12 @@ def forecast_from_history(df_hist: pd.DataFrame, year: int, month: int, onnx_bun
 
 @_cache_data(ttl=3600, show_spinner=False)
 def _forecast_cached(year: int, month: int):
-    return forecast_from_history(load_history(), int(year), int(month), onnx_bundle=_load_onnx())
+    try:
+        bundle = _load_onnx()
+    except Exception as e:
+        print(f"[ONNX] bỏ qua: {e}")
+        bundle = None
+    return forecast_from_history(load_history(), int(year), int(month), onnx_bundle=bundle)
 
 
 def run_demo_inference_for_grid(year: int, month: int, sample_step: int = 1) -> pd.DataFrame:
@@ -394,12 +452,14 @@ def render_ai_report(year: int, month: int):
     except Exception:
         return
     ho = r.get("holdout")
+    spread_txt = (f"rồi lan (IDW) ra toàn bộ {r['n_out']:,} ô" if r["spread"]
+                  else "phần còn lại được nội suy khi vẽ bản đồ")
     lines = [f"**AI Demo:** chỉ đưa {r['n_grids']:,}/{r['n_total']:,} ô rải đều ({r['n_grids'] / r['n_total']:.0%}) "
-             f"vào AI, phần còn lại được nội suy khi vẽ bản đồ. Dự báo từ tháng gốc {r['base_month']} "
+             f"vào AI, {spread_txt}. Dự báo từ tháng gốc {r['base_month']} "
              f"(độ phủ dữ liệu thật {r['base_coverage']:.0%}), nối tiếp {r['steps']} bước, "
              f"huấn luyện trên {r['n_train_months']} tháng lịch sử."]
     if r["n_fallback"]:
-        lines.append(f"{r['n_fallback']:,} ô thiếu dữ liệu lịch sử nên dùng giá trị thật gần nhất.")
+        lines.append(f"{r['n_fallback']:,} ô mẫu thiếu dữ liệu lịch sử nên dùng giá trị thật gần nhất.")
     if ho:
         parts = []
         if ho.get("mae_onnx") is not None:
@@ -414,10 +474,6 @@ def render_ai_report(year: int, month: int):
     lines.append(f"NDVI đầu vào: TB {r['last_mean']:.3f}, độ lệch {r['last_std']:.3f} → "
                  f"dự báo: TB {r['pred_mean']:.3f}, độ lệch {r['pred_std']:.3f}, tương quan {r['corr_vs_last']:.2f}.")
     st.info("\n\n".join(lines))
-
-
-
-
 
 # # utils/ai_demo.py
 # """
