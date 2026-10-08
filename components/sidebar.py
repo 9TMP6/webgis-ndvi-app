@@ -11,15 +11,15 @@ def create_placeholder_png() -> bytes:
     """
     Tạo ảnh PNG mặc định thông báo chưa có dữ liệu khi người dùng bấm tải ảnh sớm 🎨
     """
-    img = Image.new('RGB', (600, 350), color='#1E293B')  # Nền tối Slate đẹp mắt
+    img = Image.new('RGB', (600, 350), color='#F1F8F3')  # Nền tối Slate đẹp mắt
     draw = ImageDraw.Draw(img)
     
     # Vẽ khung viền trang trí
-    draw.rectangle([15, 15, 585, 335], outline='#38BDF8', width=2)
+    draw.rectangle([15, 15, 585, 335], outline='#15803D', width=2)
     
     # Vẽ các dòng chữ thông báo mặc định
-    draw.text((160, 130), "⚠️ CHUA CO DU LIEU DU BAO", fill='#FACC15')
-    draw.text((110, 170), "Vui long nhan 'CHAY DU BAO AI' de tao anh NDVI!", fill='#94A3B8')
+    draw.text((160, 130), "⚠️ CHUA CO DU LIEU DU BAO", fill='#B45309')
+    draw.text((110, 170), "Vui long nhan 'CHAY DU BAO AI' de tao anh NDVI!", fill='#5B7A66')
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -39,9 +39,9 @@ def render_sidebar(df: pd.DataFrame = None):
     with st.sidebar:
 
         st.markdown("""
-            <div style='text-align: center; padding: 0 0 15px 0; border-bottom: 1px solid #26334D; margin-bottom: 15px;'>
-                <h2 style='color: #38BDF8; font-size: 1rem; font-weight: 700; margin: 0;'>🌐 GEO-NDVI Intelligence</h2>
-                <p style='color: #94A3B8; font-size: 0.7rem; margin: 4px 0 0 0;'>AI & Remote Sensing Platform</p>
+            <div style='text-align: center; padding: 0 0 15px 0; border-bottom: 1px solid #D7E8DB; margin-bottom: 15px;'>
+                <h2 style='color: #15803D; font-size: 1rem; font-weight: 700; margin: 0;'>🌐 GEO-NDVI Intelligence</h2>
+                <p style='color: #5B7A66; font-size: 0.7rem; margin: 4px 0 0 0;'>AI & Remote Sensing Platform</p>
             </div>
         """, unsafe_allow_html=True)
 
