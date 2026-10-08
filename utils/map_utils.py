@@ -7,12 +7,20 @@ from PIL import Image
 import folium
 from folium.raster_layers import ImageOverlay
 
-NDVI_VMIN, NDVI_VMAX = -0.10, 0.70
-NDVI_STOPS = [
-    (-0.10, "#2b83ba"), (0.00, "#2b83ba"), (0.04, "#a50026"), (0.10, "#d73027"),
-    (0.18, "#e8472f"), (0.24, "#ef6a38"), (0.30, "#f78e3e"), (0.37, "#fee08b"),
-    (0.42, "#d9ef8b"), (0.48, "#91cf60"), (0.57, "#1a9850"), (0.70, "#006837"),
-]
+NDVI_PALETTE_MODE = "gee"      # "gee" = thang màu chuẩn | "arcgis" = thang cũ
+
+if NDVI_PALETTE_MODE == "gee":
+    NDVI_VMIN, NDVI_VMAX = 0.0, 0.8
+    _PALETTE = ["#FF0000", "#FF7F00", "#FFFF00", "#ADFF2F", "#00FF00", "#00FFFF", "#007FFF", "#0000FF"]
+    NDVI_STOPS = [(NDVI_VMIN + i * (NDVI_VMAX - NDVI_VMIN) / (len(_PALETTE) - 1), c)
+                  for i, c in enumerate(_PALETTE)]
+else:
+    NDVI_VMIN, NDVI_VMAX = -0.10, 0.70
+    NDVI_STOPS = [
+        (-0.10, "#2b83ba"), (0.00, "#2b83ba"), (0.04, "#a50026"), (0.10, "#d73027"),
+        (0.18, "#e8472f"), (0.24, "#ef6a38"), (0.30, "#f78e3e"), (0.37, "#fee08b"),
+        (0.42, "#d9ef8b"), (0.48, "#91cf60"), (0.57, "#1a9850"), (0.70, "#006837"),
+    ]
 
 def get_ndvi_cmap():
     return mcolors.LinearSegmentedColormap.from_list(
