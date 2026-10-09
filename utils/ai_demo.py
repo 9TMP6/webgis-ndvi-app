@@ -56,7 +56,7 @@ MAX_STEPS = 12            # tối đa dự báo nối tiếp 12 tháng
 NDVI_LO, NDVI_HI = -0.2, 1.0
 ONNX_PATH = "HCM-34-Json/lstm_ndvi_hcm_model.onnx"
 SCALER_PATH = "HCM-34-Json/scaler.json"   # {"min": ..., "max": ...} lấy từ MinMaxScaler lúc train
-USE_ONNX = False                          # MẶC ĐỊNH TẮT: demo chỉ dùng Ridge/baseline
+USE_ONNX = True                          # MẶC ĐỊNH TẮT: demo chỉ dùng Ridge/baseline
 GOOD_MONTH_FRAC = 0.5     # tháng được coi là 'tốt' nếu >= 50% số ô có giá trị thật (không bị mây)
 
 
