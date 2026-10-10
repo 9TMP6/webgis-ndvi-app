@@ -34,12 +34,12 @@ def render_sidebar(df: pd.DataFrame = None):
     with st.sidebar:
         st.markdown("""
             <div class="side-brand">
-                <p class="name">🌿 GEO-NDVI</p>
+                <p class="name">GEO-NDVI</p>
                 <p class="desc">Nền tảng viễn thám và AI giám sát thực vật</p>
             </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("### 🎛️ Bảng điều khiển")
+        st.markdown("### Bảng điều khiển")
 
         with st.expander("🔮 Bộ lọc dự báo", expanded=True):
             selected_province = st.selectbox("Tỉnh / Thành phố:", list(LOCATION_DATA.keys()))
