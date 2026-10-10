@@ -113,7 +113,7 @@ def render_section_title(title: str, subtitle: str = "", source: str = None, mod
     source: "db" (dữ liệu CSDL), "ai" (dự báo AI) hoặc None (chưa chạy).
     """
     if source == "ai":
-        tag = f'<span class="tag tag-ai">Dự báo bằng AI{" (" + model + ")" if model else ""}</span>'
+        tag = f'<span class="tag tag-ai">Kết quả dự đoán từ { model if model else ""}</span>'
     elif source == "db":
         tag = '<span class="tag tag-db">Dữ liệu quan trắc từ CSDL</span>'
     else:
