@@ -5,7 +5,7 @@ from utils.map_utils import NDVI_STOPS, NDVI_VMIN, NDVI_VMAX
 
 
 def render_metrics(df=None):
-    st.markdown("<p class='panel-title'>📈 Chỉ số vùng</p>", unsafe_allow_html=True)
+    st.markdown("<p class='panel-title'>Các chỉ số vùng</p>", unsafe_allow_html=True)
 
     has_data = df is not None and not df.empty and 'ndvi_mean' in df.columns
 
