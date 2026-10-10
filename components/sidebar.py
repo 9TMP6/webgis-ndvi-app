@@ -50,7 +50,7 @@ def render_sidebar(df: pd.DataFrame = None):
             with col_m:
                 selected_month = st.selectbox("Tháng:", list(range(1, 13)), index=8)
             with col_y:
-                selected_year = st.selectbox("Năm:", list(range(2017, 2028)), index=9)
+                selected_year = st.selectbox("Năm:", list(range(2018, 2028)), index=9)
 
             selected_time = pd.to_datetime(f"{selected_year}-{selected_month:02d}-01")
             btn_predict = st.button("🚀 Chạy dự báo AI", use_container_width=True, type="primary",
