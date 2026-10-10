@@ -95,13 +95,11 @@ def render_header():
         f"""
         <header class="hero">
             <div class="hero-text">
-                <h1>🌿 {APP_NAME} – {APP_FULL_NAME}</h1>
+                <h1>{APP_NAME} – {APP_FULL_NAME}</h1>
                 <p>{APP_TAGLINE}</p>
             </div>
             <div class="hero-badges">
-                <span class="badge"><span class="pulse-dot"></span>AI đang hoạt động</span>
-                <span class="badge">🧠 Mô hình LSTM (ONNX)</span>
-                <span class="badge">📍 TP. Hồ Chí Minh</span>
+                <span class="badge"><span class="pulse-dot"></span>TP. Hồ Chí Minh</span>
             </div>
         </header>
         """,
@@ -114,11 +112,11 @@ def render_section_title(title: str, subtitle: str = "", source: str = None):
     source: "db" (dữ liệu CSDL), "ai" (dự báo AI) hoặc None (chưa chạy).
     """
     if source == "ai":
-        tag = '<span class="tag tag-ai">🤖 Dự báo bằng AI</span>'
+        tag = '<span class="tag tag-ai">Dự báo bằng AI</span>'
     elif source == "db":
-        tag = '<span class="tag tag-db">🛰️ Dữ liệu quan trắc từ CSDL</span>'
+        tag = '<span class="tag tag-db">Dữ liệu quan trắc từ CSDL</span>'
     else:
-        tag = '<span class="tag tag-idle">⏳ Chưa chạy dự báo</span>'
+        tag = '<span class="tag tag-idle">⏳</span>'
 
     sub_html = f'<p class="sub">{subtitle}</p>' if subtitle else ""
     st.markdown(
@@ -142,7 +140,7 @@ def render_footer():
         <footer class="site-footer">
             <div class="footer-grid">
                 <div>
-                    <h4>🌿 {APP_NAME}</h4>
+                    <h4> {APP_NAME}</h4>
                     <p>{APP_FULL_NAME}. Kết hợp dữ liệu viễn thám, cơ sở dữ liệu ô lưới và mô hình học sâu
                     để theo dõi và dự báo biến động thảm thực vật tại TP. Hồ Chí Minh.</p>
                 </div>
