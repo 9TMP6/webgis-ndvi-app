@@ -27,7 +27,8 @@ html, body, [class*="css"] { font-size: 14px !important; }
 .stApp h1, .stApp h2, .stApp h3 { color: var(--g-900); }
 
 /* Ẩn dòng "Made with Streamlit" mặc định, giữ lại thanh header để còn nút mở sidebar */
-#MainMenu, footer { visibility: hidden; }
+#MainMenu, [data-testid="stFooter"] { visibility: hidden; }
+.site-footer { visibility: visible !important; }
 [data-testid="stHeader"] { background: rgba(245, 250, 246, 0.85); backdrop-filter: blur(8px); }
 [data-testid="stHeader"] a[href*="github"] { display: none !important; }
 
