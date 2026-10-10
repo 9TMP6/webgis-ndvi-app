@@ -41,7 +41,7 @@ if "ndvi_period" not in st.session_state:
 if btn_predict:
     year, month = selected_time.year, selected_time.month
 
-    with st.spinner(f"🌐 Đang kiểm tra CSDL và chạy AI cho tháng {month}/{year}..."):
+    with st.spinner(f"Đang kiểm tra CSDL và chạy AI cho tháng {month}/{year}..."):
         df_result, is_ai_generated = load_ndvi_data_with_ai_fallback(year=year, month=month)
         st.session_state["ndvi_df"] = df_result
         st.session_state["ndvi_is_ai"] = is_ai_generated if not df_result.empty else None
@@ -52,10 +52,10 @@ if btn_predict:
             st.warning(f"⚠️ Không có dữ liệu và không thể dự báo cho tháng **{month}/{year}**.")
         elif is_ai_generated:
             st.toast(f"AI đã dự báo thành công {len(df_result):,} ô lưới NDVI!", icon="🤖")
-            st.success(f"🚀 **Dự báo AI:** Đã dự báo **{len(df_result):,}** ô lưới NDVI cho tháng **{month}/{year}** bằng mô hình `.onnx`.")
+            st.success(f" **Dự báo AI:** Đã dự báo **{len(df_result):,}** ô lưới NDVI cho tháng **{month}/{year}** bằng mô hình `.onnx`.")
         else:
             st.toast(f"Tải thành công {len(df_result):,} điểm NDVI từ CSDL!", icon="🛰️")
-            st.success(f"🎉 **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô lưới NDVI từ CSDL Supabase.")
+            st.success(f" **Truy vấn thành công:** Đã tải **{len(df_result):,}** ô lưới NDVI từ CSDL Supabase.")
 
 ndvi_df = st.session_state["ndvi_df"]
 is_ai = st.session_state["ndvi_is_ai"]
@@ -76,8 +76,8 @@ render_section_title(
 
 if not has_data:
     st.markdown(
-        "<div class='empty-hint'>👈 <b>Bắt đầu:</b> chọn khu vực, tháng và năm ở thanh bên trái, "
-        "sau đó nhấn <b>🚀 Chạy dự báo AI</b> để hiển thị lớp NDVI trên bản đồ.</div>",
+        "<div class='empty-hint'> <b>Bắt đầu:</b> chọn khu vực, tháng và năm ở thanh bên trái, "
+        "sau đó nhấn <b> Chạy dự báo AI</b> để hiển thị lớp NDVI trên bản đồ.</div>",
         unsafe_allow_html=True,
     )
 
