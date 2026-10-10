@@ -113,11 +113,11 @@ def render_section_title(title: str, subtitle: str = "", source: str = None):
     source: "db" (dữ liệu CSDL), "ai" (dự báo AI) hoặc None (chưa chạy).
     """
     if source == "ai":
-        tag = '<span class="tag tag-ai">🤖 Dự báo bằng AI</span>'
+        tag = '<span class="tag tag-ai">Dự báo bằng AI</span>'
     elif source == "db":
-        tag = '<span class="tag tag-db">🛰️ Dữ liệu quan trắc từ CSDL</span>'
+        tag = '<span class="tag tag-db">Dữ liệu quan trắc từ CSDL</span>'
     else:
-        tag = '<span class="tag tag-idle">⏳ Chưa chạy dự báo</span>'
+        tag = '<span class="tag tag-idle">⏳</span>'
 
     sub_html = f'<p class="sub">{subtitle}</p>' if subtitle else ""
     st.markdown(
