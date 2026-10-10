@@ -76,7 +76,7 @@ def load_ndvi_data_with_ai_fallback(year: int, month: int, min_valid_rows: int =
     1. Truy vấn CSDL Supabase trước.
     2. Lọc bỏ các dòng bị NaN/Null.
     3. Kiểm tra nếu số dòng hợp lệ >= min_valid_rows (20,000 ô) -> Dùng CSDL thực tế.
-    4. Nếu < 20,000 ô (bị khuyết mây nhiều) HOẶC không có dữ liệu -> Tự động chạy AI ONNX! 🤖
+    4. Nếu < 20,000 ô (bị khuyết mây nhiều) HOẶC không có dữ liệu -> Tự động chạy AI ONNX! 
     """
     engine = get_db_engine()
     try:
