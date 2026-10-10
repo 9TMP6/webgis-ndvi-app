@@ -99,8 +99,8 @@ def render_header(model_name: str = "LSTM"):
                 <p>{APP_TAGLINE}</p>
             </div>
             <div class="hero-badges">
-                <span class="badge"><span class="pulse-dot"></span>TP. Hồ Chí Minh</span>
-                <span class="badge">🧠 Mô hình {model_name} đang được sử dụng</span>
+                <span class="badge"><span class="pulse-dot"></span>Mô hình {model_name} đang được sử dụng</span>
+                <span class="badge">📍 TP. Hồ Chí Minh</span>
             </div>
         </header>
         """,
