@@ -21,6 +21,9 @@ st.set_page_config(
     menu_items={"About": f"**{APP_NAME} – {APP_FULL_NAME}**\n\n{SEO_DESCRIPTION}"},
 )
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+from dark_theme import DARK_CSS, is_dark_theme
+if is_dark_theme():
+    st.markdown(DARK_CSS, unsafe_allow_html=True)
 inject_ui_effects()
 
 # 2. Sidebar (gọi trước header để header hiển thị đúng mô hình đang chọn)
