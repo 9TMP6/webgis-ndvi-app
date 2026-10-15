@@ -99,7 +99,6 @@ def render_header(model_name: str = "LSTM"):
                 <p>{APP_TAGLINE}</p>
             </div>
             <div class="hero-badges">
-                <span class="badge"><span class="pulse-dot"></span>Mô hình {model_name} đang được sử dụng</span>
                 <span class="badge">📍 TP. Hồ Chí Minh</span>
             </div>
         </header>
@@ -157,14 +156,12 @@ def render_footer():
                 <div>
                     <h4>Thông tin dự án</h4>
                     <ul>
-                        <li>👥 {TEAM}</li>
-                        <li>🎓 {SCHOOL}</li>
                         <li>📍 Khu vực nghiên cứu: TP. Hồ Chí Minh</li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                © {year} {TEAM} – {SCHOOL}. Bảo lưu mọi quyền.
+                © {year}
             </div>
         </div>
         """,
