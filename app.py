@@ -126,11 +126,11 @@ _rep = st.session_state.get("ai_report")
 if is_ai and _rep and _rep.get("backend") not in (None, "onnx"):
     shown_model = {"ridge": "Ridge (thuật toán dự phòng)", "persistence": "Persistence (giữ nguyên tháng trước)"}.get(
         _rep["backend"], _rep["backend"])
-if is_ai and _rep:
-    quality_note = (
-        f"Dựa trên tháng dữ liệu {_rep.get('base_month')}, dự báo {_rep.get('steps')} bước; "
-        f"{_rep.get('n_fallback', 0)}/{_rep.get('n_grids')} ô mẫu thiếu dữ liệu nên dùng giá trị gần nhất có hiệu chỉnh mùa vụ."
-    )
+# if is_ai and _rep:
+#     quality_note = (
+#         f"Dựa trên tháng dữ liệu {_rep.get('base_month')}, dự báo {_rep.get('steps')} bước; "
+#         f"{_rep.get('n_fallback', 0)}/{_rep.get('n_grids')} ô mẫu thiếu dữ liệu nên dùng giá trị gần nhất có hiệu chỉnh mùa vụ."
+#     )
 
 render_section_title(
     title=f"🛰️ Bản đồ phân bố NDVI tháng {format_period(data_period)} – {area_label}",
