@@ -65,7 +65,7 @@ def render_sidebar(df: pd.DataFrame = None):
             selected_time = pd.to_datetime(f"{selected_year}-{selected_month:02d}-01")
             # Mô hình do admin chọn (lưu trong CSDL, ai vào cũng thấy giống nhau)
             selected_model = get_default_model()
-            st.caption(f"🤖 Mô hình dự báo hiện tại: **{selected_model}** (do quản trị viên chọn)")
+            st.caption(f"Mô hình tối ưu nhất đang được sử dụng")
             btn_predict = st.button("🚀 Chạy dự báo AI", use_container_width=True, type="primary",
                                     help="Lấy dữ liệu NDVI từ CSDL, nếu thiếu sẽ tự dùng AI để dự báo")
 
