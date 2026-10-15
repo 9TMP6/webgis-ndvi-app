@@ -161,7 +161,6 @@ def render_footer():
                 </div>
             </div>
             <div class="footer-bottom">
-                © {year}
             </div>
         </div>
         """,
