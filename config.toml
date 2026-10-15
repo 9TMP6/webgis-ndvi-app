@@ -1,13 +1,31 @@
-[client] 
+# [client] 
+# toolbarMode = "viewer"
+
+# [theme]
+# base = "light"
+# primaryColor = "#16A34A"
+# backgroundColor = "#F5FAF6"
+# secondaryBackgroundColor = "#E8F3EA"
+# textColor = "#14301F"
+# font = "sans serif"
+
+# [theme.dark]
+# primaryColor = "#22C55E"
+# backgroundColor = "#0E1A13"
+# secondaryBackgroundColor = "#16271D"
+# textColor = "#E3F1E8"
+
+[client]
 toolbarMode = "viewer"
 
 [theme]
-base = "light"
+font = "sans-serif"
+
+[theme.light]
 primaryColor = "#16A34A"
 backgroundColor = "#F5FAF6"
 secondaryBackgroundColor = "#E8F3EA"
 textColor = "#14301F"
-font = "sans serif"
 
 [theme.dark]
 primaryColor = "#22C55E"
