@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from config import LOCATION_DATA
 from utils.styles import CUSTOM_CSS
+from utils.dark_theme import DARK_CSS, is_dark_theme
 from components.layout import (
     APP_NAME, APP_FULL_NAME, SEO_DESCRIPTION,
     inject_ui_effects, render_header, render_section_title, render_footer, format_period,
