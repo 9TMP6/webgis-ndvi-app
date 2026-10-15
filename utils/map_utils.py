@@ -358,8 +358,8 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str):
         return None
     grid, ext = main
     inset = None
-    if m_far.any():
-        inset = _export_interpolate(lons[m_far], lats[m_far], vals[m_far], geom, 300)
+    # if m_far.any():
+    #     inset = _export_interpolate(lons[m_far], lats[m_far], vals[m_far], geom, 300)
 
     cmap = get_ndvi_cmap().copy()                 # CÙNG bảng màu + thang với bản đồ web
     cmap.set_bad((0, 0, 0, 0))
