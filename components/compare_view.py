@@ -108,7 +108,7 @@ def _detail_table_html(m: pd.DataFrame) -> str:
 
 
 def _metrics_section(m: pd.DataFrame, info: dict = None):
-    st.markdown("<p class='panel-title'>📐 Chỉ số chính xác của các mô hình theo tháng</p>", unsafe_allow_html=True)
+    st.markdown("<p class='panel-title'> Chỉ số chính xác của các mô hình theo tháng</p>", unsafe_allow_html=True)
     if info:
         if info.get("error"):
             st.error(f"Không tính/lưu được chỉ số vào CSDL: {info['error']}")
@@ -127,16 +127,16 @@ def _metrics_section(m: pd.DataFrame, info: dict = None):
            .format({"R² TB": "{:.4f}", "MAE TB": "{:.4f}", "RMSE TB": "{:.4f}"})
            .highlight_max(subset=["R² TB"], color="#BBF7D0")
            .highlight_min(subset=["MAE TB", "RMSE TB"], color="#BBF7D0"))
-    st.caption("Trung bình theo các tháng đã chọn (ô xanh = mô hình tốt nhất):")
+    st.caption("Trung bình theo các tháng đã chọn:")
     st.dataframe(sty, hide_index=True, use_container_width=True)
 
-    st.caption("Chi tiết từng tháng (ô xanh đậm = tốt nhất trong tháng đó):")
+    st.caption("Chi tiết từng tháng:")
     st.markdown(_detail_table_html(m), unsafe_allow_html=True)
 
 
 def render_compare_view():
     render_section_title(
-        title="📊 So sánh quan trắc và các mô hình AI",
+        title="So sánh quan trắc và các mô hình AI",
         subtitle="Chỉ đọc dữ liệu đã lưu trong CSDL, không chạy dự báo. Mỗi điểm = NDVI trung bình của các ô lưới trong tháng.",
         source="db",
     )
@@ -159,8 +159,8 @@ def render_compare_view():
     sy = c2.selectbox("Năm bắt đầu", years, index=0, key="cmp_sy")
     em = c3.selectbox("Tháng kết thúc", range(1, 13), index=last.month - 1, key="cmp_em")
     ey = c4.selectbox("Năm kết thúc", years, index=len(years) - 1, key="cmp_ey")
-    go_btn = c5.button("📊 So sánh", type="primary", use_container_width=True, key="btn_run_compare")
-    recalc = st.checkbox("Tính lại chỉ số chính xác cho khoảng này (xoá và tính mới)", key="cmp_recalc")
+    go_btn = c5.button("So sánh", type="primary", use_container_width=True, key="btn_run_compare")
+    recalc = st.checkbox("Luôn làm mới chỉ số", key="cmp_recalc")
 
     if go_btn:
         start, end = pd.Timestamp(sy, sm, 1), pd.Timestamp(ey, em, 1)
@@ -192,7 +192,7 @@ def render_compare_view():
         st.plotly_chart(_line_chart(df), use_container_width=True, config={"displaylogo": False})
         st.plotly_chart(_bar_chart(df), use_container_width=True, config={"displaylogo": False})
         missing = {s: int(df[s].isna().sum()) for s in SERIES}
-        st.caption(f"Số tháng bị trống (không có hoặc chưa đủ ô lưới) trên tổng {len(df)} tháng: "
+        st.caption(f"Số tháng bị trống trên tổng {len(df)} tháng: "
                    + " · ".join(f"{k}: {v}" for k, v in missing.items()))
     _metrics_section(res["metrics"], res.get("info"))
 
