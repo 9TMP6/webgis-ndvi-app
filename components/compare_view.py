@@ -137,10 +137,16 @@ def _metrics_section(m: pd.DataFrame, info: dict = None):
            .format({"R² TB": "{:.4f}", "MAE TB": "{:.4f}", "RMSE TB": "{:.4f}"})
            .highlight_max(subset=["R² TB"], color="#BBF7D0")
            .highlight_min(subset=["MAE TB", "RMSE TB"], color="#BBF7D0"))
-    st.caption("Trung bình theo các tháng đã chọn (ô xanh = mô hình tốt nhất):")
+    st.caption("Trung bình theo các tháng đã chọn:")
     st.dataframe(sty, hide_index=True, use_container_width=True)
 
-    st.caption("Chi tiết từng tháng (ô xanh đậm = tốt nhất trong tháng đó):")
+    st.caption("Chi tiết từng tháng:")
+    st.caption(
+        "**Mốc tham khảo để coi là đạt**:  \n"
+        "• **R²**  : ≥ 0,80 tốt | 0,60 – 0,80 chấp nhận được | < 0,60 chưa đạt  \n"
+        "• **MAE** : < 0,08 tốt | 0,08 – 0,12 chấp nhận được | > 0,12 chưa đạt  \n"
+        "• **RMSE**: < 0,10 tốt | 0,10 – 0,15 chấp nhận được | > 0,15 chưa đạt"
+    )
     st.markdown(_detail_table_html(m), unsafe_allow_html=True)
 
 
@@ -179,15 +185,15 @@ def _deviation_table_html(d: pd.DataFrame) -> str:
 
 
 def _deviation_section(res: dict):
-    st.markdown("<p class='panel-title'>🔎 Độ chênh lệch 1 số vùng</p>", unsafe_allow_html=True)
-    if st.button("🔀 Lấy mẫu khác", key="btn_resample_dev"):
+    st.markdown("<p class='panel-title'>Độ chênh lệch 1 số vùng</p>", unsafe_allow_html=True)
+    if st.button("Lấy mẫu khác", key="btn_resample_dev"):
         res["dev"] = load_deviation_sample(str(res["start"].date()), str(res["end"].date()))
     d = res.get("dev")
     if d is None or d.empty:
         st.info("Chưa có ô nào vừa có quan trắc vừa có dự đoán trong khoảng thời gian đã chọn.")
         return
-    st.caption(f"{len(d)} ô lưới lấy ngẫu nhiên trong khoảng đã chọn. Độ chênh = dự đoán − quan trắc "
-               "(dương: dự đoán cao hơn thực tế). Ô xanh = mô hình sát quan trắc nhất ở dòng đó. "
+    st.caption(f"{len(d)} ô lưới lấy ngẫu nhiên trong khoảng đã chọn."
+               "Ô màu xanh thể hiện giá trị sát quan trắc nhất. "
                "Đây chỉ là mẫu minh hoạ, không đại diện toàn bản đồ; đánh giá chung xem bảng chỉ số ở trên.")
     st.markdown(_deviation_table_html(d), unsafe_allow_html=True)
 
@@ -195,7 +201,7 @@ def _deviation_section(res: dict):
 def render_compare_view():
     render_section_title(
         title="📊 So sánh quan trắc và các mô hình AI",
-        subtitle="Chỉ đọc dữ liệu đã lưu trong CSDL, không chạy dự báo. Mỗi điểm = NDVI trung bình của các ô lưới trong tháng.",
+        subtitle="Thể hiện giữa kết quả dự báo của các mô hình và kết quả quan trắc.",
         source="db",
     )
     if st.button("← Quay lại bản đồ", key="btn_back_map"):
@@ -215,10 +221,10 @@ def render_compare_view():
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.3], vertical_alignment="bottom")
     sm = c1.selectbox("Tháng bắt đầu", range(1, 13), index=0, key="cmp_sm")
     sy = c2.selectbox("Năm bắt đầu", years, index=0, key="cmp_sy")
-    em = c3.selectbox("Tháng kết thúc", range(1, 13), index=last.month - 1, key="cmp_em")
+    em = c3.selectbox("Tháng kết thúc", range(1, 13), index=0, key="cmp_em")
     ey = c4.selectbox("Năm kết thúc", years, index=len(years) - 1, key="cmp_ey")
-    go_btn = c5.button("📊 So sánh", type="primary", use_container_width=True, key="btn_run_compare")
-    recalc = st.checkbox("Tính lại chỉ số chính xác cho khoảng này (xoá và tính mới)", key="cmp_recalc")
+    go_btn = c5.button("So sánh", type="primary", use_container_width=True, key="btn_run_compare")
+    recalc = st.checkbox("Luôn làm mới chỉ số", key="cmp_recalc")
 
     if go_btn:
         start, end = pd.Timestamp(sy, sm, 1), pd.Timestamp(ey, em, 1)
@@ -251,7 +257,7 @@ def render_compare_view():
         st.plotly_chart(_line_chart(df), use_container_width=True, config={"displaylogo": False})
         st.plotly_chart(_bar_chart(df), use_container_width=True, config={"displaylogo": False})
         missing = {s: int(df[s].isna().sum()) for s in SERIES}
-        st.caption(f"Số tháng bị trống (không có hoặc chưa đủ ô lưới) trên tổng {len(df)} tháng: "
+        st.caption(f"Số tháng bị trống trên tổng {len(df)} tháng: "
                    + " · ".join(f"{k}: {v}" for k, v in missing.items()))
     _metrics_section(res["metrics"], res.get("info"))
     _deviation_section(res)
