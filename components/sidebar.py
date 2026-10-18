@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 from PIL import Image, ImageDraw
 from config import LOCATION_DATA
-from utils.app_settings import MODELS, get_default_model, set_default_model
+from utils.app_settings import MODELS, get_default_model, set_default_model, get_force_ai, set_force_ai
 from utils.db_writer import save_predictions
 
 
@@ -190,6 +190,14 @@ def _on_model_change():
         else:
             st.toast("Không lưu được mô hình mặc định vào CSDL.", icon="❌")
 
+def _on_force_ai_change():
+    if st.session_state.get("is_admin"):
+        flag = bool(st.session_state["admin_force_ai"])
+        if set_force_ai(flag):
+            st.toast("Đã BẬT chế độ luôn dùng AI cho dự báo." if flag
+                     else "Đã TẮT chế độ luôn dùng AI cho dự báo.", icon="✅")
+        else:
+            st.toast("Không lưu được cài đặt vào CSDL.", icon="❌")
 
 def _open_compare():
     st.session_state["view_mode"] = "compare"
@@ -222,6 +230,13 @@ def render_admin_panel(df: pd.DataFrame = None):
         st.selectbox("Mô hình AI mặc định:", MODELS, key="admin_model_select",
                      disabled=not is_admin, on_change=_on_model_change,
                      help="Mô hình này sẽ được dùng cho mọi người dùng khi cần dự báo bằng AI")
+
+        cur_force = get_force_ai()
+        if st.session_state.get("admin_force_ai") != cur_force:
+            st.session_state["admin_force_ai"] = cur_force
+        st.checkbox("Luôn dùng AI dự báo mọi thời điểm", key="admin_force_ai",
+                    disabled=not is_admin, on_change=_on_force_ai_change,
+                    help="Bật: Luôn dùng AI cho mọi thời điểm.")
 
         # 2. Lưu (ghi đè) kết quả dự báo đang xem vào CSDL
         has_ai = (bool(st.session_state.get("ndvi_is_ai")) and st.session_state.get("ai_report") is not None
