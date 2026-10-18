@@ -15,7 +15,7 @@ from components.compare_view import render_compare_view
 from utils.data_loader import load_ndvi_data_with_ai_fallback, ModelError
 from utils import ai_demo
 from utils.db_writer import save_predictions
-
+from utils.app_settings import get_force_ai
 # True: ai chạy dự báo cũng tự lưu vào CSDL (ô trống) | False: chỉ admin mới tự lưu
 AUTO_SAVE_FOR_CLIENTS = False
 
@@ -42,7 +42,7 @@ if st.session_state["view_mode"] == "compare" and not st.session_state["is_admin
 
 # 3. Sidebar (mô hình lấy từ CSDL: do admin chọn)
 selected_province, selected_district, selected_time, basemap_choice, show_boundaries, btn_predict, selected_model = render_sidebar()
-
+force_ai = get_force_ai()
 # 4. Header
 render_header(selected_model)
 
@@ -56,7 +56,7 @@ if btn_predict:
     with status_box.container():
         with st.spinner(f"Đang kiểm tra CSDL và chạy AI cho tháng {month}/{year}..."):
             try:
-                df_result, is_ai_generated = load_ndvi_data_with_ai_fallback(year=year, month=month, model_name=selected_model)
+                df_result, is_ai_generated = load_ndvi_data_with_ai_fallback(year=year, month=month, model_name=selected_model, force_ai=force_ai)
             except ModelError as e:
                 df_result, is_ai_generated = pd.DataFrame(), False
                 model_error = str(e)
