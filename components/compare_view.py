@@ -143,8 +143,8 @@ def _metrics_section(m: pd.DataFrame, info: dict = None):
     st.caption("Chi tiết từng tháng:")
     st.caption(
         "**Mốc tham khảo để coi là đạt**:  \n"
-        "• **R²**  : ≥ 0,80 tốt | 0,60 – 0,80 chấp nhận được | < 0,60 chưa đạt  \n"
-        "• **MAE** : < 0,08 tốt | 0,08 – 0,12 chấp nhận được | > 0,12 chưa đạt  \n"
+        "• **R²**      : ≥ 0,80 tốt | 0,60 – 0,80 chấp nhận được | < 0,60 chưa đạt  \n"
+        "• **MAE**  : < 0,08 tốt | 0,08 – 0,12 chấp nhận được | > 0,12 chưa đạt  \n"
         "• **RMSE**: < 0,10 tốt | 0,10 – 0,15 chấp nhận được | > 0,15 chưa đạt"
     )
     st.markdown(_detail_table_html(m), unsafe_allow_html=True)
