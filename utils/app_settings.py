@@ -58,3 +58,36 @@ def set_default_model(model: str) -> bool:
     except Exception as e:
         print(f"[APP_SETTINGS] Không lưu được mô hình mặc định: {e}")
         return False
+
+_KEY_FORCE_AI = "force_ai"
+
+
+@st.cache_data(ttl=15, show_spinner=False)
+def get_force_ai() -> bool:
+    """True = luôn dùng AI dự báo, không lấy dữ liệu quan trắc từ CSDL (chế độ nạp dữ liệu)."""
+    if not _ensure_table():
+        return False
+    try:
+        with get_db_engine().connect() as conn:
+            val = conn.execute(text("SELECT value FROM public.app_settings WHERE key = :k"),
+                               {"k": _KEY_FORCE_AI}).scalar()
+        return val == "1"
+    except Exception as e:
+        print(f"[APP_SETTINGS] Không đọc được force_ai: {e}")
+        return False
+
+
+def set_force_ai(flag: bool) -> bool:
+    if not _ensure_table():
+        return False
+    try:
+        with get_db_engine().begin() as conn:
+            conn.execute(text("""
+                INSERT INTO public.app_settings (key, value) VALUES (:k, :v)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """), {"k": _KEY_FORCE_AI, "v": "1" if flag else "0"})
+        get_force_ai.clear()
+        return True
+    except Exception as e:
+        print(f"[APP_SETTINGS] Không lưu được force_ai: {e}")
+        return False
