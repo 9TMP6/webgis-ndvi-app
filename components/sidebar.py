@@ -205,8 +205,8 @@ def _open_compare():
 
 def render_admin_panel(df: pd.DataFrame = None):
     """
-    Menu 'Truy cập admin' (đặt cuối sidebar). Chưa nhập đúng mật khẩu thì các ô bị mờ (disabled).
-    Gọi SAU khi chạy dự báo để nút ghi đè luôn dùng kết quả mới nhất.
+    Menu 'Truy cập admin' (cuối sidebar).
+    Chưa mở khóa: CHỈ hiện ô nhập mật khẩu, các chức năng admin hoàn toàn không được vẽ ra.
     """
     is_admin = bool(st.session_state.get("is_admin"))
 
@@ -217,45 +217,101 @@ def render_admin_panel(df: pd.DataFrame = None):
                 st.form_submit_button("Mở khóa", use_container_width=True, on_click=_try_unlock)
             if st.session_state.get("admin_pw_error"):
                 st.error("Sai mật khẩu.")
-        else:
-            st.success("Đang ở chế độ admin")
-            st.button("Đăng xuất admin", use_container_width=True, on_click=_logout, key="btn_admin_logout")
+            return                      # <- dừng ở đây: client không thấy gì thêm
 
+        # ---------- Từ đây trở xuống chỉ admin đã mở khóa mới thấy ----------
+        st.success("Đang ở chế độ admin")
+        st.button("Đăng xuất admin", use_container_width=True, on_click=_logout, key="btn_admin_logout")
         st.divider()
 
-        # 1. Chọn mô hình mặc định (áp dụng cho tất cả người dùng)
+        # 1. Mô hình mặc định (áp dụng cho tất cả người dùng)
         current = get_default_model()
         if st.session_state.get("admin_model_select") != current:
             st.session_state["admin_model_select"] = current
         st.selectbox("Mô hình AI mặc định:", MODELS, key="admin_model_select",
-                     disabled=not is_admin, on_change=_on_model_change,
+                     on_change=_on_model_change,
                      help="Mô hình này sẽ được dùng cho mọi người dùng khi cần dự báo bằng AI")
 
+        # 2. Chế độ nạp dữ liệu: luôn dùng AI
         cur_force = get_force_ai()
         if st.session_state.get("admin_force_ai") != cur_force:
             st.session_state["admin_force_ai"] = cur_force
         st.checkbox("Luôn dùng AI dự báo mọi thời điểm", key="admin_force_ai",
-                    disabled=not is_admin, on_change=_on_force_ai_change,
-                    help="Bật: Luôn dùng AI cho mọi thời điểm.")
+                    on_change=_on_force_ai_change,
+                    help="Bật: mọi tháng đều chạy AI, không lấy dữ liệu quan trắc. Áp dụng cho tất cả người dùng.")
 
-        # 2. Lưu (ghi đè) kết quả dự báo đang xem vào CSDL
+        # 3. Lưu kết quả dự báo đang xem vào CSDL
         has_ai = (bool(st.session_state.get("ndvi_is_ai")) and st.session_state.get("ai_report") is not None
                   and df is not None and not df.empty)
         overwrite = st.checkbox("Ghi đè dữ liệu đã có", value=False, key="admin_overwrite",
-                                disabled=not (is_admin and has_ai),
+                                disabled=not has_ai,
                                 help="Tắt: chỉ điền các ô còn trống. Bật: ghi đè toàn bộ.")
         if st.button("💾 Lưu kết quả vào CSDL", use_container_width=True, key="btn_overwrite_db",
-                     disabled=not (is_admin and has_ai)):
+                     disabled=not has_ai):
             per = st.session_state["ndvi_period"]
             res = save_predictions(df, st.session_state["ndvi_model"], per.year, per.month,
                                    report=st.session_state["ai_report"], overwrite=overwrite)
             (st.success if res["status"] == "saved" else st.warning)(res["message"])
-        if is_admin and not has_ai:
+        if not has_ai:
             st.caption("Nút lưu chỉ bật khi đang xem kết quả do AI dự báo.")
 
-        # 3. So sánh các mô hình (thay phần bên phải bằng biểu đồ)
+        # 4. So sánh các mô hình
         st.button("📊 So sánh mô hình", use_container_width=True, key="btn_open_compare",
-                  disabled=not is_admin, on_click=_open_compare)
+                  on_click=_open_compare)
+
+# def render_admin_panel(df: pd.DataFrame = None):
+#     """
+#     Menu 'Truy cập admin' (đặt cuối sidebar). Chưa nhập đúng mật khẩu thì các ô bị mờ (disabled).
+#     Gọi SAU khi chạy dự báo để nút ghi đè luôn dùng kết quả mới nhất.
+#     """
+#     is_admin = bool(st.session_state.get("is_admin"))
+
+#     with st.sidebar.expander("🔐 Truy cập admin", expanded=is_admin):
+#         if not is_admin:
+#             with st.form("admin_login", border=False):
+#                 st.text_input("Mật khẩu admin", type="password", key="admin_pw_input")
+#                 st.form_submit_button("Mở khóa", use_container_width=True, on_click=_try_unlock)
+#             if st.session_state.get("admin_pw_error"):
+#                 st.error("Sai mật khẩu.")
+#         else:
+#             st.success("Đang ở chế độ admin")
+#             st.button("Đăng xuất admin", use_container_width=True, on_click=_logout, key="btn_admin_logout")
+
+#         st.divider()
+
+#         # 1. Chọn mô hình mặc định (áp dụng cho tất cả người dùng)
+#         current = get_default_model()
+#         if st.session_state.get("admin_model_select") != current:
+#             st.session_state["admin_model_select"] = current
+#         st.selectbox("Mô hình AI mặc định:", MODELS, key="admin_model_select",
+#                      disabled=not is_admin, on_change=_on_model_change,
+#                      help="Mô hình này sẽ được dùng cho mọi người dùng khi cần dự báo bằng AI")
+
+#         cur_force = get_force_ai()
+#         if st.session_state.get("admin_force_ai") != cur_force:
+#             st.session_state["admin_force_ai"] = cur_force
+#         st.checkbox("Luôn dùng AI dự báo mọi thời điểm", key="admin_force_ai",
+#                     disabled=not is_admin, on_change=_on_force_ai_change,
+#                     help="Bật: Luôn dùng AI cho mọi thời điểm.")
+
+#         # 2. Lưu (ghi đè) kết quả dự báo đang xem vào CSDL
+#         has_ai = (bool(st.session_state.get("ndvi_is_ai")) and st.session_state.get("ai_report") is not None
+#                   and df is not None and not df.empty)
+#         overwrite = st.checkbox("Ghi đè dữ liệu đã có", value=False, key="admin_overwrite",
+#                                 disabled=not (is_admin and has_ai),
+#                                 help="Tắt: chỉ điền các ô còn trống. Bật: ghi đè toàn bộ.")
+#         if st.button("💾 Lưu kết quả vào CSDL", use_container_width=True, key="btn_overwrite_db",
+#                      disabled=not (is_admin and has_ai)):
+#             per = st.session_state["ndvi_period"]
+#             res = save_predictions(df, st.session_state["ndvi_model"], per.year, per.month,
+#                                    report=st.session_state["ai_report"], overwrite=overwrite)
+#             (st.success if res["status"] == "saved" else st.warning)(res["message"])
+#         if is_admin and not has_ai:
+#             st.caption("Nút lưu chỉ bật khi đang xem kết quả do AI dự báo.")
+
+#         # 3. So sánh các mô hình (thay phần bên phải bằng biểu đồ)
+#         st.button("📊 So sánh mô hình", use_container_width=True, key="btn_open_compare",
+#                   disabled=not is_admin, on_click=_open_compare)
 
 
 
