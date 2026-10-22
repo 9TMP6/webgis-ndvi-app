@@ -50,7 +50,7 @@ def render_metrics(df=None):
     ))
     fig_ring.add_annotation(text=f"<b>{label}</b>", x=0.5, y=0.5,
                             font=dict(size=15, color="#14532D"), showarrow=False)
-    fig_ring.update_layout(height=150, margin=dict(l=0, r=0, t=0, b=0),
+    fig_ring.update_layout(height=100, margin=dict(l=0, r=0, t=0, b=0),
                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig_ring, use_container_width=True, config={'displayModeBar': False})
     st.markdown("<p class='ring-caption'>Độ phủ thực vật</p>", unsafe_allow_html=True)
