@@ -98,7 +98,7 @@ def load_ndvi_data_with_ai_fallback(year: int, month: int, min_valid_rows: int =
                     f"(chỉ có {len(df_valid):,}/{len(df):,} ô hợp lệ). Đang tự động chuyển sang mô hình AI dự báo..."
                 )
 
-        st.info(f"Đang chạy mô hình AI {model_name} cho tháng {month}/{year}...")
+        st.info(f"Đang chạy mô hình AI dự báo cho tháng {month}/{year}...")
         try:
             df_predicted = run_demo_inference_for_grid(year, month, model_name=model_name)
         except Exception as e:
