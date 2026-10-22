@@ -69,7 +69,7 @@ def render_metrics(df=None):
             <div style="height:14px;border-radius:4px;background:linear-gradient(to right,{grad});"></div>
             <div style="position:relative;height:16px;font-size:0.72rem;color:#5B7A66;margin-top:2px;">{ticks}</div>
             <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#3F5B49;">
-                <span>Thấp (đất trống, đô thị)</span><span>Cao (thực vật dày)</span>
+                <span>Thấp</span><span>Cao</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
