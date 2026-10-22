@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 from config import LOCATION_DATA
 from utils.app_settings import MODELS, get_default_model, set_default_model, get_force_ai, set_force_ai
 from utils.db_writer import save_predictions
+from utils.gee_loader import render_gee_panel
 
 
 def create_placeholder_png() -> bytes:
@@ -258,6 +259,8 @@ def render_admin_panel(df: pd.DataFrame = None):
         # 4. So sánh các mô hình
         st.button("📊 So sánh mô hình", use_container_width=True, key="btn_open_compare",
                   on_click=_open_compare)
+        st.divider()
+        render_gee_panel()
 
 # def render_admin_panel(df: pd.DataFrame = None):
 #     """
