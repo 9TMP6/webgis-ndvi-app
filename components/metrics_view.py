@@ -27,10 +27,10 @@ def render_metrics(df=None):
         <div class="stat-grid">
             <div class="stat-box wide"><div class="stat-title">NDVI trung bình</div>
                 <div class="stat-value" style="color:#15803D;">{mean_val}</div></div>
-            <div class="stat-box"><div class="stat-title">NDVI lớn nhất</div>
-                <div class="stat-value" style="color:#10B981;">{max_val}</div></div>
             <div class="stat-box"><div class="stat-title">NDVI nhỏ nhất</div>
                 <div class="stat-value" style="color:#EF4444;">{min_val}</div></div>
+            <div class="stat-box"><div class="stat-title">NDVI lớn nhất</div>
+                <div class="stat-value" style="color:#10B981;">{max_val}</div></div>
             <div class="stat-box wide"><div class="stat-title">Số ô lưới</div>
                 <div class="stat-value" style="color:#14532D;">{cell_count}</div></div>
         </div>
