@@ -13,7 +13,7 @@ def render_chart_and_summary(selected_district, selected_province, selected_time
 
     render_section_title(
         title=f"📈 Biến động NDVI 12 tháng đến mốc {time_str}",
-        subtitle="Giá trị NDVI trung bình toàn TP. Hồ Chí Minh theo từng tháng (không thay đổi theo khu vực chọn).",
+        subtitle="Giá trị NDVI trung bình toàn TP. Hồ Chí Minh theo từng tháng.",
     )
 
     historical_dates, historical_ndvi = [], []
