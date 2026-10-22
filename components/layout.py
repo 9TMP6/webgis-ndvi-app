@@ -114,7 +114,7 @@ def render_section_title(title: str, subtitle: str = "", source: str = None, mod
     if source == "ai":
         tag = f'<span class="tag tag-ai">Kết quả đã dự báo</span>'
     elif source == "db":
-        tag = '<span class="tag tag-db">Dữ liệu quan trắc từ CSDL</span>'
+        tag = '<span class="tag tag-db">Dữ liệu ảnh vệ tinh từ CSDL</span>'
     else:
         tag = '<span class="tag tag-idle">⏳</span>'
 
