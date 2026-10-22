@@ -16,3 +16,4 @@ numpy>=1.23.2
 pandas>=1.5.0
 onnxruntime
 tifffile
+earthengine-api
