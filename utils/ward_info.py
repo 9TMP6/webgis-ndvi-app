@@ -239,7 +239,7 @@ def build_ward_popup(row, stats=None, city_mean=None, data_loaded=False, period_
     merged = _txt(row, "sap_nhap")
     n_merged = _count_merged(merged)
     if n_merged:
-        info.append(_row("Hình thành từ", f"{n_merged} đơn vị cũ"))
+        info.append(_row("Sáp nhập từ", f"{n_merged} đơn vị cũ"))
 
     parts = [
         f"<div class='wp'><div class='wp-h'><b>{_esc(ward_label(row))}</b><span>{_esc(sub)}</span></div><div class='wp-b'>",
@@ -250,7 +250,7 @@ def build_ward_popup(row, stats=None, city_mean=None, data_loaded=False, period_
     if merged:
         parts.append(f"<div class='wp-merge'><b>Sáp nhập từ:</b> {_esc(merged)}</div>")
     foot = "NDVI của đơn vị = trung bình các ô lưới nằm trong ranh giới."
-    if source_label:
-        foot = f"Nguồn NDVI: {_esc(source_label)}. " + foot
-    parts.append(f"<div class='wp-foot'>{foot}</div></div></div>")
+    # if source_label:
+    #     foot = f"Nguồn NDVI: {_esc(source_label)}. " + foot
+    # parts.append(f"<div class='wp-foot'>{foot}</div></div></div>")
     return "".join(parts)
