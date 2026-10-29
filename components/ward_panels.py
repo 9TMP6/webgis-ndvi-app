@@ -64,11 +64,13 @@ def render_ward_ranking(df, period_label=""):
         subtitle=f"{len(table)} đơn vị hành chính, xếp theo NDVI trung bình của các ô lưới nằm trong ranh giới. "
                  "Bấm tiêu đề cột để sắp xếp theo tiêu chí khác.",
     )
-    order = st.radio("Sắp xếp theo NDVI:", ["Giảm dần (cao nhất trước)", "Tăng dần (thấp nhất trước)"],
-                     horizontal=True, key="ward_rank_order")
-    asc = order.startswith("Tăng")
-    table = table.sort_values(["NDVI TB", "Đơn vị"], ascending=[asc, True], na_position="last", kind="mergesort")
+    # order = st.radio("Sắp xếp theo NDVI:", ["Giảm dần (cao nhất trước)", "Tăng dần (thấp nhất trước)"],
+    #                  horizontal=True, key="ward_rank_order")
+    # asc = order.startswith("Tăng")
+    # table = table.sort_values(["NDVI TB", "Đơn vị"], ascending=[asc, True], na_position="last", kind="mergesort")
 
+    table = table.sort_values(["NDVI TB", "Đơn vị"], ascending=[False, True], na_position="last", kind="mergesort")
+    
     st.dataframe(
         table, hide_index=True, use_container_width=True, height=420,
         column_config={
