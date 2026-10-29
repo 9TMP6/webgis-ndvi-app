@@ -36,7 +36,7 @@ def render_ndvi_range_filter(df):
 
     with box:
         st.markdown("<span class='rf-marker'></span>", unsafe_allow_html=True)
-        st.markdown("<div class='rf-title'>Lọc chỉ số NDVI</br></div>", unsafe_allow_html=True)
+        st.markdown("<div class='rf-title' style='margin-bottom: 12px;'>Lọc chỉ số NDVI</div>", unsafe_allow_html=True)
         lo, hi = st.slider(
             "Lọc chỉ số NDVI", min_value=full[0], max_value=full[1], value=full, step=0.01,
             format="%.2f", key=f"ndvi_range_{rev}", label_visibility="collapsed",
