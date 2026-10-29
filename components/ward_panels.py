@@ -49,8 +49,6 @@ def render_ndvi_range_filter(df):
             n_in = int(((stats["ndvi_mean"] >= lo) & (stats["ndvi_mean"] <= hi)).sum())
             st.markdown(f"<div class='rf-count'><b>{n_in}/{total}</b> đơn vị có NDVI từ <b>{lo:.2f}</b> đến <b>{hi:.2f}</b></div>",
                         unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='rf-count'>Kéo thanh trượt để chọn chỉ số.</div>", unsafe_allow_html=True)
     return (lo, hi, "highlight") if active else None
 
 
