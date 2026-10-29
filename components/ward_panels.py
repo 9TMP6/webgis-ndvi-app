@@ -47,7 +47,7 @@ def render_ndvi_range_filter(df):
         active = (lo, hi) != full
         if active:
             n_in = int(((stats["ndvi_mean"] >= lo) & (stats["ndvi_mean"] <= hi)).sum())
-            st.markdown(f"Có <div class='rf-count'><b>{n_in}/{total}</b> đơn vị. </div>",
+            st.markdown(f"<div class='rf-count'>Có <b>{n_in}/{total}</b> đơn vị. </div>",
                         unsafe_allow_html=True)
     return (lo, hi, "highlight") if active else None
 
