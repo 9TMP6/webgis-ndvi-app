@@ -25,7 +25,7 @@ MAX_FRAMES = 72            # an toàn bộ nhớ: tối đa số khung (lấy c�
 MAX_SIDE_PX = 360          # độ phân giải lưới nội suy mỗi khung (ảnh xuất ra gấp đôi)
 GAP_FILL_K = 6             # điền ô bị mây bằng IDW từ K ô hợp lệ gần nhất
 VIEW_HEIGHT = 700
-DEFAULT_YEARS = (2017, 2026)
+DEFAULT_YEARS = (2018, 2026)
 
 
 # ====================================================================================================
@@ -348,7 +348,7 @@ def render_timeline_controls():
         c3, c4 = st.columns(2)
         c3.selectbox("Đến tháng:", list(range(1, 13)), index=m_hi - 1, key="tl_em")
         c4.selectbox("Năm:", years, index=len(years) - 1, key="tl_ey")
-        st.button("▶️ Xem", use_container_width=True, key="btn_open_timeline", on_click=_open_timeline,
+        st.button("Xem diễn biến", use_container_width=True, key="btn_open_timeline", on_click=_open_timeline,
                   help="Phát lần lượt NDVI quan trắc của các tháng trong khoảng đã chọn")
 
 
