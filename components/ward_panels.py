@@ -36,9 +36,9 @@ def render_ndvi_range_filter(df):
 
     with box:
         st.markdown("<span class='rf-marker'></span>", unsafe_allow_html=True)
-        st.markdown("<div class='rf-title'>Lọc phường/xã theo NDVI</div>", unsafe_allow_html=True)
+        st.markdown("<div class='rf-title'>Lọc chỉ số NDVI</br></div>", unsafe_allow_html=True)
         lo, hi = st.slider(
-            "Lọc phường/xã theo NDVI", min_value=full[0], max_value=full[1], value=full, step=0.01,
+            "Lọc chỉ số NDVI", min_value=full[0], max_value=full[1], value=full, step=0.01,
             format="%.2f", key=f"ndvi_range_{rev}", label_visibility="collapsed",
         )
         st.button("↺ Đặt lại", key="ndvi_range_reset", on_click=_reset_range, use_container_width=True)
@@ -50,7 +50,7 @@ def render_ndvi_range_filter(df):
             st.markdown(f"<div class='rf-count'><b>{n_in}/{total}</b> đơn vị có NDVI từ <b>{lo:.2f}</b> đến <b>{hi:.2f}</b></div>",
                         unsafe_allow_html=True)
         else:
-            st.markdown("<div class='rf-count'>Kéo thanh trượt để lọc phường/xã theo NDVI.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='rf-count'>Kéo thanh trượt để chọn chỉ số.</div>", unsafe_allow_html=True)
     return (lo, hi, "highlight") if active else None
 
 
