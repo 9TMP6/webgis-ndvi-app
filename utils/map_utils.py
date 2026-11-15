@@ -388,7 +388,7 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str, sour
     rect(0, fig_h - top_h - 0.05, fig_w, 0.05, facecolor="#65A30D", edgecolor="none")
     fig.text(0.45 / fig_w, (fig_h - 0.45) / fig_h, "BẢN ĐỒ CHỈ SỐ THỰC VẬT NDVI",
              color="white", fontsize=19, fontweight="bold", va="center")
-    parts = [place_label] + ([f"Tháng {date_label}"] if date_label else []) + ([source_label] if source_label else [])
+    parts = [place_label] + ([f"Ngày {date_label}" if str(date_label).count("/") == 2 else f"Tháng {date_label}"] if date_label else []) + ([source_label] if source_label else [])
     fig.text(0.45 / fig_w, (fig_h - 0.84) / fig_h, "  ·  ".join(parts), color="#DCFCE7", fontsize=11.5, va="center")
     fig.text((fig_w - 0.45) / fig_w, (fig_h - 0.45) / fig_h, "GEO-NDVI",
              color="white", fontsize=14, fontweight="bold", ha="right", va="center")
