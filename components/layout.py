@@ -5,7 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 APP_NAME = "GEO-NDVI"
-APP_FULL_NAME = "Hệ thống Dự báo Chỉ số Thực vật NDVI"
+APP_FULL_NAME = "Hệ thống giám sát lớp phủ thực vật tại TP.HCM"
 APP_TAGLINE = "Ứng dụng viễn thám và AI dự báo biến động thảm thực vật tại TP. Hồ Chí Minh"
 TEAM = "3CNTT5"
 SCHOOL = "Trường Đại học Tài nguyên và Môi trường TP. Hồ Chí Minh"
