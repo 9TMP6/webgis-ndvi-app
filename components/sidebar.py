@@ -130,6 +130,65 @@ def render_sidebar(df: pd.DataFrame = None):
 
     return selected_province, selected_district, selected_time, basemap_choice, show_boundaries, btn_predict, selected_model
 
+def _render_report_buttons(df: pd.DataFrame, period: pd.Timestamp):
+    """Báo cáo Word/PDF: chỉ tạo khi bấm nút (không tạo lại mỗi lần trang chạy lại); lỗi thì hiện rõ nguyên nhân."""
+    import traceback
+
+    is_ai = bool(st.session_state.get("ndvi_is_ai"))
+    model = st.session_state.get("ndvi_model") or ""
+    label = f"{period.month:02d}/{period.year}"
+    sig = (label, is_ai, model, len(df), round(float(df["ndvi_mean"].mean()), 6))   # dữ liệu đổi -> bắt tạo lại
+    cache = st.session_state.get("report_files")
+
+    st.markdown("**📄 Báo cáo Word / PDF**")
+    if st.button("📝 Tạo báo cáo", use_container_width=True, key="btn_make_report",
+                 help="Tạo báo cáo tổng hợp NDVI (Word và PDF) cho dữ liệu đang xem"):
+        from utils.report_export import generate_ndvi_report_docx
+        from utils.report_pdf import generate_ndvi_report_pdf
+        from utils.ward_info import get_ward_stats, build_ranking_table
+
+        out = {"sig": sig, "docx": None, "pdf": None, "err": []}
+        with st.spinner("Đang tạo báo cáo..."):
+            ranking = None
+            try:
+                stats, _, gdf = get_ward_stats(df)
+                if stats is not None and gdf is not None:
+                    ranking = build_ranking_table(stats, gdf)
+            except Exception as e:
+                out["err"].append(f"Bảng xếp hạng phường/xã: {e}")
+            map_png = None
+            try:
+                src = f"Dự báo AI ({model})" if is_ai else "Quan trắc vệ tinh"
+                map_png = _build_export_png(df, label, src)
+            except Exception as e:
+                out["err"].append(f"Ảnh bản đồ: {e}")
+            kw = dict(ranking=ranking, map_png=map_png, period_label=label,
+                      source_kind="ai" if is_ai else "observed", model_name=model)
+            for ext, fn in (("docx", generate_ndvi_report_docx), ("pdf", generate_ndvi_report_pdf)):
+                try:
+                    out[ext] = fn(df, **kw)
+                except Exception as e:
+                    out["err"].append(f"{ext.upper()}: {type(e).__name__}: {e}\n{traceback.format_exc()[-1200:]}")
+        st.session_state["report_files"] = out
+        cache = out
+
+    if cache and cache.get("sig") == sig:
+        base = f"bao_cao_ndvi_{period.year}_{period.month:02d}"
+        if cache.get("docx"):
+            st.download_button("📘 Tải báo cáo Word (.docx)", data=cache["docx"], file_name=base + ".docx",
+                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               use_container_width=True, key="dl_report_docx")
+        if cache.get("pdf"):
+            st.download_button("📕 Tải báo cáo PDF (.pdf)", data=cache["pdf"], file_name=base + ".pdf",
+                               mime="application/pdf", use_container_width=True, key="dl_report_pdf")
+        if cache.get("err"):
+            with st.expander("⚠️ Chi tiết lỗi tạo báo cáo"):
+                for msg in cache["err"]:
+                    st.code(msg)
+    else:
+        st.caption("Bấm “Tạo báo cáo” để tạo file Word và PDF cho dữ liệu đang xem.")
+
+
 
 def render_sidebar_export(selected_district, selected_time, df=None):
     """
@@ -225,6 +284,9 @@ def render_sidebar_export(selected_district, selected_time, df=None):
                         mime="image/tiff", use_container_width=True,
                         help="Ảnh NDVI float32 có toạ độ WGS84, mở được trong QGIS/ArcGIS",
                     )
+                    #update
+                    if has_data:
+                        _render_report_buttons(df, period)
                 else:
                     st.caption("Không tạo được file GeoTIFF cho dữ liệu này.")
 
