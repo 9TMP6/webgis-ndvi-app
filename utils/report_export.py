@@ -45,20 +45,36 @@ SOURCE_TEXT = {
 
 
 # ---------------- Tiện ích định dạng Word ----------------
+# def _fmt(x, nd=3):
+#     """Số kiểu Việt Nam: dấu phẩy thập phân."""
+#     try:
+#         return f"{float(x):.{nd}f}".replace(".", ",")
+#     except (TypeError, ValueError):
+#         return "–"
+
+
+# def _int(x):
+#     try:
+#         return f"{int(round(float(x))):,}".replace(",", ".")
+#     except (TypeError, ValueError):
+#         return "–"
 def _fmt(x, nd=3):
-    """Số kiểu Việt Nam: dấu phẩy thập phân."""
     try:
-        return f"{float(x):.{nd}f}".replace(".", ",")
+        v = float(x)
     except (TypeError, ValueError):
         return "–"
-
+    if v != v or v in (float("inf"), float("-inf")):
+        return "–"
+    return f"{v:.{nd}f}".replace(".", ",")
 
 def _int(x):
     try:
-        return f"{int(round(float(x))):,}".replace(",", ".")
+        v = float(x)
     except (TypeError, ValueError):
         return "–"
-
+    if v != v:
+        return "–"
+    return f"{int(round(v)):,}".replace(",", ".")
 
 def _now_vn():
     try:
