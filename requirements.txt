@@ -18,3 +18,4 @@ onnxruntime
 tifffile
 earthengine-api
 python-docx
+reportlab
