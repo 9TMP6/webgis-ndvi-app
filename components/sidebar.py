@@ -84,7 +84,7 @@ def render_sidebar(df: pd.DataFrame = None):
             selected_time = pd.to_datetime(f"{selected_year}-{selected_month:02d}-01")
 
             # ---- Dự báo theo ngày (MÔ PHỎNG): selected_time vẫn là ngày 1, ngày chọn lưu riêng trong session ----
-            daily_on = st.checkbox("📅 Dự báo theo ngày (mô phỏng)", key="daily_mode_cb",
+            daily_on = st.checkbox("📅 Dự báo theo ngày", key="daily_mode_cb",
                                    help="Dựng NDVI từng ngày bằng cách nội suy giữa các tháng liền kề rồi cộng dao động nhỏ. "
                                         "Đây là mô phỏng để minh họa, không phải mô hình dự báo theo ngày.")
             if daily_on:
@@ -123,7 +123,6 @@ def _render_report_buttons(df: pd.DataFrame, period: pd.Timestamp):
     sig = (label, is_ai, model, len(df), round(float(df["ndvi_mean"].mean()), 6))   # dữ liệu đổi -> bắt tạo lại
     cache = st.session_state.get("report_files")
 
-    st.markdown("**📄 Báo cáo Word / PDF**")
     if st.button("📝 Tạo báo cáo", use_container_width=True, key="btn_make_report",
                  help="Tạo báo cáo tổng hợp NDVI (Word và PDF) cho dữ liệu đang xem"):
         from utils.report_export import generate_ndvi_report_docx
@@ -155,14 +154,15 @@ def _render_report_buttons(df: pd.DataFrame, period: pd.Timestamp):
         st.session_state["report_files"] = out
         cache = out
 
+    st.markdown("**Chọn định dạng**")
     if cache and cache.get("sig") == sig:
         base = f"bao_cao_ndvi_{period.year}_{period.month:02d}"
         if cache.get("docx"):
-            st.download_button("📘 Tải báo cáo Word (.docx)", data=cache["docx"], file_name=base + ".docx",
+            st.download_button("Tải báo cáo Word (.docx)", data=cache["docx"], file_name=base + ".docx",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                use_container_width=True, key="dl_report_docx")
         if cache.get("pdf"):
-            st.download_button("📕 Tải báo cáo PDF (.pdf)", data=cache["pdf"], file_name=base + ".pdf",
+            st.download_button("Tải báo cáo PDF (.pdf)", data=cache["pdf"], file_name=base + ".pdf",
                                mime="application/pdf", use_container_width=True, key="dl_report_pdf")
         if cache.get("err"):
             with st.expander("⚠️ Chi tiết lỗi tạo báo cáo"):
