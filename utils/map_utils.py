@@ -337,7 +337,7 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str, sour
     map_w, map_h = w_eff * scale, h_deg * scale
 
     left, gap, side_w, right_pad = 1.05, 0.45, 3.5, 0.45
-    bottom, top_h, top_gap = 2.3, 1.15, 0.3
+    bottom, top_h, top_gap = 1.6, 1.15, 0.3
     body_h = max(map_h, 7.2)
     fig_w = left + map_w + gap + side_w + right_pad
     fig_h = bottom + body_h + top_h + top_gap
@@ -375,13 +375,8 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str, sour
         ax.add_collection(LineCollection(outer_segs, colors="#111827", linewidths=0.9, zorder=3))
     ax.set_xlim(lon_min, lon_max)
     ax.set_ylim(lat_min, lat_max)
-    ax.xaxis.set_major_locator(MaxNLocator(6))
-    ax.yaxis.set_major_locator(MaxNLocator(7))
-    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{abs(v):.2f}°{'E' if v >= 0 else 'W'}"))
-    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{abs(v):.2f}°{'N' if v >= 0 else 'S'}"))
-    ax.tick_params(labelsize=8, colors="#374151", length=3)
-    ax.set_axisbelow(False)
-    ax.grid(True, color="#6B7280", alpha=0.3, linestyle=":", linewidth=0.6)
+    ax.set_xticks([])
+    ax.set_yticks([])
     for sp in ax.spines.values():
         sp.set_edgecolor("#374151")
         sp.set_linewidth(1.0)
@@ -390,7 +385,7 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str, sour
     width_km = (lon_max - lon_min) * 111.32 * k
     bar_km = max([v for v in (1, 2, 4, 8, 20, 40, 80, 100, 200) if v <= 0.3 * width_km] or [1])
     bar_in = bar_km / width_km * map_w                      # độ dài thanh tỉ lệ trên ảnh (inch)
-    n_seg, sb_x, sb_y, sb_h = 4, left + 0.1, map_bottom - 1.0, 0.11
+    n_seg, sb_x, sb_y, sb_h = 4, left + 0.1, map_bottom - 0.5, 0.11
     seg_in = bar_in / n_seg
     fig.text(sb_x / fig_w, (sb_y + sb_h + 0.17) / fig_h, "TỈ LỆ (gần đúng)", fontsize=8,
              fontweight="bold", color="#15803D", va="center")
@@ -401,13 +396,13 @@ def _render_export_map(df: pd.DataFrame, date_label: str, place_label: str, sour
         lab = f"{bar_km * i / n_seg:g}" + (" km" if i == n_seg else "")
         fig.text((sb_x + i * seg_in) / fig_w, (sb_y - 0.1) / fig_h, lab, fontsize=7.5, color="#111827",
                  ha="center", va="top")
-    nax = fig.add_axes(fr(left + map_w - 0.75, map_bottom - 1.45, 0.6, 0.95), facecolor="none")
-    nax.set_xlim(0, 1)
-    nax.set_ylim(0, 1)
-    nax.axis("off")
-    nax.annotate("", xy=(0.5, 0.78), xytext=(0.5, 0.04),
-                 arrowprops=dict(arrowstyle="-|>", color="#111827", lw=2.2))
-    nax.text(0.5, 0.84, "N", ha="center", va="bottom", fontsize=13, fontweight="bold", color="#111827")
+    # nax = fig.add_axes(fr(left + map_w - 0.75, map_bottom - 1.45, 0.6, 0.95), facecolor="none")
+    # nax.set_xlim(0, 1)
+    # nax.set_ylim(0, 1)
+    # nax.axis("off")
+    # nax.annotate("", xy=(0.5, 0.78), xytext=(0.5, 0.04),
+    #              arrowprops=dict(arrowstyle="-|>", color="#111827", lw=2.2))
+    # nax.text(0.5, 0.84, "N", ha="center", va="bottom", fontsize=13, fontweight="bold", color="#111827")
 
     # ---- cột thẻ bên phải ----
     sx = left + map_w + gap
